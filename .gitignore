@@ -1,0 +1,42 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+.svelte-kit
+*.tsbuildinfo
+
+# Tauri / Rust
+src-tauri/target
+src-tauri/gen
+src-tauri/WixTools
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs / temp
+*.log
+*.tmp
+.cache
+.parcel-cache
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Test artifacts
+coverage
+playwright-report
+test-results
