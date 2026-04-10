@@ -128,8 +128,12 @@ tasks/            фиксация знаний (зеркало Linear)
 npm run tauri dev     # dev с Tauri
 npm run dev           # только frontend
 npm run lint          # ESLint + Prettier
-npm run test          # Vitest
+npm run format        # Prettier (запись)
+npm run test          # Vitest (unit)
+npm run test:e2e      # Playwright (e2e)
+cd src-tauri && cargo fmt
 cd src-tauri && cargo clippy -- -D warnings
+cd src-tauri && cargo test
 ```
 
 ## Slash-команды Claude Code
@@ -166,3 +170,6 @@ cd src-tauri && cargo clippy -- -D warnings
 - **Этап:** 0 — Bootstrap
 - **Версия:** 0.0.0
 - **Платформы:** Windows (primary), Linux/macOS (best-effort)
+- **Известные TODO:**
+  - Иконки приложения (`src-tauri/icons/`) — placeholder, заменить.
+  - CI не настроен.

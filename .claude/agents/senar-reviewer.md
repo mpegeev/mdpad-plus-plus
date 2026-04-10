@@ -88,7 +88,7 @@ Backend: Rust, tauri::command, Result<T, String>.
 - **Дизайн-токены** — все цвета через `var(--*)`, отступы кратны 4px через `--space-*`?
 - **Радиусы** — только из `--radius-sm/md/lg`?
 - **Шрифты** — `--font-ui` или `--font-mono`, не кастомный?
-- **Иконки** — из `lucide-svelte`, 14/16px?
+- **Иконки** — из `src/lib/ui/Icon.svelte` + `icons.ts`, 14/16px? (lucide-svelte несовместим с Svelte 5 runes)
 - **Анимации** — нет `transition: all`, нет анимаций на `height`?
 
 ## Формат отчёта
