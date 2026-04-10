@@ -1,205 +1,146 @@
 # mdpad++ — Claude Code Project Context
 
-> Этот файл — основной источник правды для Claude Code при работе над проектом.
-> Обновляй его после каждого значимого архитектурного изменения.
+> Читай при старте каждой сессии. Детали архитектуры — `docs/architecture.md`.
+> Дизайн-система — `DESIGN.md`. Методология — `docs/senar.md`.
 
-## Что это
+Если сомневаешься — **остановись и спроси**, не угадывай.
 
-**mdpad++** — лёгкий кроссплатформенный редактор Markdown-заметок,
-сочетающий идеи Notepad++ (быстрый редактор кода с вкладками) и
-Typora (inline-рендер Markdown). Цель — мгновенный запуск и отсутствие
-тормозов даже на больших документах.
+---
 
-## Tech stack
+## Правила работы (SENAR)
 
-| Слой | Технология | Зачем |
-|---|---|---|
-| Shell | **Tauri 2** | Лёгкий нативный wrapper (~5–15 МБ), системный WebView |
-| Backend | **Rust** | Файловый I/O, watcher, индексация для поиска |
-| Frontend framework | **Svelte 5** (runes) | Минимум boilerplate, быстрый реактивный UI |
-| Build | **Vite** | Dev-server и bundling |
-| Язык | **TypeScript** (strict) | Типобезопасность во фронте |
-| Редактор | **CodeMirror 6** | Виртуализация, декорации, виджеты, gutters |
-| Markdown parser | **markdown-it** | Расширяемый, быстрый, подходит для inline-рендера |
-| Тесты | **Vitest** (unit) + **Playwright** (e2e) | Стандарт экосистемы Vite |
-| Линтеры | **ESLint** + **Prettier** + **rustfmt** + **clippy** | Единый стиль |
+### 1. Задача до кода
+Не пиши код без сформулированной задачи (Linear issue с целью, критериями
+приёмки, негативным сценарием, областью изменений и уровнем риска).
+Нет задачи — предложи `/new-task`. Исследование без коммита — можно.
 
-**Почему именно эти технологии — см. раздел "Architectural decisions" ниже.**
+### 2. Границы изменений
+Меняй **только** файлы из области задачи. Нужно больше — спроси.
+Без разрешения не трогай: конфиги CI, lock-файлы, `Cargo.lock`,
+`package-lock.json`, `tauri.conf.json`.
 
-## Структура репозитория
+### 3. Верификация фактами
+Каждый критерий = конкретное свидетельство (вывод теста, diff, ответ).
+"Работает" и "должно работать" — не верификация.
 
+### 4. Тесты — поведение, не реализация
+Тесты из критериев приёмки. Мокай только внешние границы (Tauri API,
+FS, время). Не правь тест, чтобы прошёл — разбирайся в причине.
+
+### 5. Безопасность по умолчанию
+- Fail-closed при недоступности ресурса.
+- Пустая конфигурация падает, а не обходится.
+- Никаких секретов в коде.
+- Валидируй ввод до файловых операций.
+- Rust: никаких `unwrap()` в production, только `?`.
+
+### 6. Завершение задачи
+1. Свидетельство по каждому критерию.
+2. Список изменённых файлов vs область задачи.
+3. SENAR-ревью: `Use the senar-reviewer subagent`.
+4. Не готово — скажи прямо.
+Используй `/done <имя>`.
+
+### 7. Баг = корневая причина
+Воспроизведи → гипотеза → подтверждение супервайзера → патч.
+Не знаешь причину — скажи "не знаю". Используй `/rca`.
+
+### 8. Фиксация знаний
+В конце задачи: тупики, решения, известные проблемы. "Нет" — валидный ответ.
+
+---
+
+## Что НИКОГДА не делаешь
+
+- Не объявляешь готовым без свидетельств.
+- Не меняешь файлы за пределами области "по ходу дела".
+- Не правишь тесты вместо кода.
+- Не добавляешь зависимости без согласования.
+- Не пишешь `catch {}` без объяснения.
+
+---
+
+## О проекте
+
+**mdpad++** — лёгкий кроссплатформенный Markdown-редактор заметок.
+Гибрид Notepad++ и Typora: вкладки, дерево файлов, inline-рендер MD,
+F2 для raw-режима, мгновенный запуск на больших документах.
+
+### Стек
+- **Tauri 2** + **Rust** — нативная оболочка, файловый I/O
+- **Svelte 5** (runes) + **TypeScript** strict + **Vite** — frontend
+- **CodeMirror 6** — редактор (декорации, виджеты, виртуализация)
+- **markdown-it** — парсер MD
+- **shadcn-svelte** + **Tailwind** — UI-компоненты (копируются в `src/lib/ui/`)
+- **lucide-svelte** — иконки 14/16px
+- **Vitest** + **Playwright** — тесты
+- **ESLint** + **Prettier** + **rustfmt** + **clippy** — линтеры
+
+### Ключевая архитектурная идея
+Документ — плоский Markdown в EditorState. Блоки рендерятся через
+`Decoration.replace` + `WidgetType`. F2 снимает виджет → raw-режим.
+Подробности — `docs/architecture.md`.
+
+### Структура
 ```
-mdpad-plus-plus/
-├── CLAUDE.md                  # этот файл
-├── README.md
-├── package.json               # JS-зависимости
-├── tsconfig.json
-├── vite.config.ts
-├── svelte.config.js
-├── index.html
-├── src/                       # frontend (Svelte + TS)
-│   ├── main.ts                # точка входа
-│   ├── App.svelte             # корневой компонент
-│   ├── lib/
-│   │   ├── editor/            # обёртка над CodeMirror 6
-│   │   ├── markdown/          # парсер и inline-рендер
-│   │   ├── tabs/              # система вкладок
-│   │   ├── sidebar/           # дерево файлов
-│   │   ├── search/            # поиск по документам
-│   │   ├── settings/          # темы, шрифт, хоткеи
-│   │   └── stores/            # Svelte stores (состояние приложения)
-│   └── styles/
-├── src-tauri/                 # backend (Rust)
-│   ├── Cargo.toml
-│   ├── tauri.conf.json
-│   ├── capabilities/          # ACL (Tauri 2 permissions)
-│   └── src/
-│       ├── main.rs
-│       ├── lib.rs
-│       ├── fs_commands.rs     # tauri::command для файлов
-│       ├── search.rs          # индекс и поиск
-│       └── watcher.rs         # отслеживание изменений на диске
-└── tests/                     # e2e (Playwright)
+src/              Svelte + TS frontend
+src/lib/ui/       shadcn-svelte компоненты
+src/lib/editor/   обёртка CodeMirror 6
+src/lib/stores/   Svelte stores
+src/styles/       tokens.css, themes/
+src-tauri/src/    Rust: Tauri commands
+.claude/          SENAR: subagent + slash-commands
+docs/             architecture.md, senar.md
+tasks/            фиксация знаний (зеркало Linear)
 ```
 
-## Архитектурные решения
+---
 
-### Почему Tauri 2, а не Electron
-- Бинарник в 10–20 раз меньше (~10 МБ против ~150 МБ).
-- Меньшее потребление RAM — критично для "лёгкого" редактора.
-- Системный WebView (WebView2 на Windows, WKWebView на macOS, WebKitGTK на Linux).
-- Минус: разные WebView на разных ОС → больше тестирования. Принимаем.
+## Конвенции
 
-### Почему CodeMirror 6, а не Monaco / Lexical / своё решение
-- CM6 единственный, у кого декорации, replace-widgets, gutters и виртуализация
-  собраны в нужной комбинации для гибрида "raw ↔ rendered по блокам".
-- Размер бандла ~400 КБ против ~5 МБ у Monaco.
-- Своё решение — это 6–12 человеко-месяцев на rope, IME, виртуализацию и т.д.
-  Не оправдано для этого проекта.
+**TS/Svelte:** strict, PascalCase компоненты, camelCase stores, runes,
+нет `any` без комментария. Все цвета — CSS-переменные, отступы кратны 4px.
 
-### Inline render: ключевая идея
-Документ хранится как обычный Markdown-текст в `EditorState` CodeMirror.
-Markdown парсится на блоки (заголовки, параграфы, списки, code-fences и т.д.).
-Каждый блок **по умолчанию** отображается через `Decoration.replace` с
-кастомным `WidgetType`, который рендерит HTML-представление блока.
-По нажатию **F2** на текущем блоке (или клику) виджет временно снимается —
-открывается raw-Markdown с полной поддержкой редактирования. После потери
-фокуса/Esc — снова рендер. Это позволяет:
-- сохранить производительность виртуализации (только видимые блоки рендерятся),
-- избежать сложностей rich-text engine (исходник всегда плоский MD),
-- получить эффект "Typora" без переписывания модели документа.
+**Rust:** `cargo fmt` + `clippy -D warnings`, `Result<T, String>`,
+нет `unwrap()`.
 
-### Хранение состояния
-- **Открытые документы**, **вкладки**, **настройки**, **последние файлы** —
-  в Svelte stores, персистятся в JSON в каталоге Tauri `app_data_dir`.
-- **Содержимое файлов** не дублируется в state, источник правды — диск.
-  В памяти держим только dirty buffers (несохранённые изменения).
-- **Автосохранение** — debounce 2 секунды после последнего ввода, либо при
-  потере фокуса окна. Несохранённые изменения дополнительно сбрасываются
-  во временный snapshot для recovery после сбоя.
+**Git:** ветки `feat/MDP-123-slug`, Conventional Commits, один PR = один issue.
+Основная ветка `main`, защищённая.
 
-### Diff-полоса (gutter изменённых строк)
-- При открытии файла снимаем "baseline" — содержимое с диска.
-- На каждый редактирующий transaction CodeMirror диффим текущий буфер с baseline
-  построчно (быстрый алгоритм Майерса из библиотеки `diff` или вручную для
-  построчного diff — он O(n+m) при равных длинах).
-- Декорируем gutter цветом: жёлтый — изменено, зелёный — добавлено, красный —
-  удалено (как в VS Code).
-- При сохранении baseline обновляется, индикация сбрасывается.
+**UI:** читай `DESIGN.md` перед любой UI-задачей.
 
-## Команды разработки
+---
+
+## Команды
 
 ```bash
-# Установка зависимостей
-npm install
-
-# Dev-режим (Vite + Tauri вместе)
-npm run tauri dev
-
-# Production build
-npm run tauri build
-
-# Только frontend (без Tauri)
-npm run dev
-
-# Линтинг
-npm run lint
-npm run format
-
-# Тесты
-npm run test           # unit (Vitest)
-npm run test:e2e       # e2e (Playwright)
-
-# Rust-сторона
-cd src-tauri
-cargo fmt
-cargo clippy
-cargo test
+npm run tauri dev     # dev с Tauri
+npm run dev           # только frontend
+npm run lint          # ESLint + Prettier
+npm run test          # Vitest
+cd src-tauri && cargo clippy -- -D warnings
 ```
 
-## Конвенции кода
+## Slash-команды Claude Code
 
-### TypeScript / Svelte
-- `strict: true` всегда.
-- Имена компонентов — `PascalCase.svelte`.
-- Stores — `camelCase` в `src/lib/stores/`, экспорт через barrel `index.ts`.
-- Никаких `any` без комментария-обоснования.
-- Svelte 5: используем runes (`$state`, `$derived`, `$effect`), не legacy reactive `$:`.
-- Предпочитаем чистые функции в `lib/`, побочные эффекты только в компонентах и stores.
+- `/new-task <имя>` — шлюз "Старт"
+- `/done <имя>` — шлюз "Готово"
+- `/rca <описание>` — root cause analysis
+- `Use the senar-reviewer subagent` — ревью по чеклисту
 
-### Rust
-- `cargo fmt` + `cargo clippy -- -D warnings` обязательны перед коммитом.
-- Tauri-команды — в отдельных модулях по доменам (`fs_commands.rs`, `search.rs`).
-- Все команды возвращают `Result<T, String>` — ошибки сериализуются в JS.
-- Никаких `unwrap()` в production-коде, только `?` или явная обработка.
+## Definition of Done
 
-### Git
-- Ветки: `feat/MDP-123-short-description`, `fix/MDP-123-...`, `chore/...`.
-- Коммиты по Conventional Commits: `feat(editor): add F2 toggle for raw mode`.
-- В теле коммита и/или PR — ссылка на Linear-issue: `MDP-123`.
-- Один PR ≈ один Linear issue. Не смешиваем фичи.
-
-## Workflow с Linear
-
-Все задачи живут в Linear (проект **mdpad++**, префикс ID — `MDP`).
-Каждая задача содержит:
-- **Title** — короткое описание фичи.
-- **Description** — контекст, acceptance criteria, ссылки на технические заметки.
-- **Labels** — `frontend`, `backend`, `editor`, `ux`, `performance`, `infra`.
-- **Milestone** — этап (Skeleton, Editor, Inline render, ...).
-- **Estimate** — story points (1, 2, 3, 5, 8).
-
-### Цикл работы Claude Code
-1. Прочитать `CLAUDE.md` (этот файл).
-2. Получить следующий issue из Linear (`In Progress` или верх `Todo`).
-3. Внимательно прочитать description и acceptance criteria.
-4. Создать ветку `feat/MDP-XXX-slug`.
-5. Реализовать, написать тесты, прогнать линтер.
-6. Закоммитить с правильным префиксом.
-7. Открыть PR с описанием и пометкой `Closes MDP-XXX`.
-8. Перевести issue в `In Review`.
-9. После мержа — `Done`.
-10. **Обновить CLAUDE.md**, если изменилась архитектура или появились новые
-    конвенции.
-
-## Definition of Done (общий)
-
-Issue считается выполненным, только если:
-- [ ] Код реализует все acceptance criteria.
-- [ ] Юнит-тесты на новый код добавлены и проходят.
-- [ ] `npm run lint`, `cargo clippy` — без ошибок.
-- [ ] Приложение собирается в dev и release-режиме.
-- [ ] Ручная проверка фичи в `npm run tauri dev`.
-- [ ] CLAUDE.md обновлён, если задача затронула архитектуру.
-- [ ] PR создан, описан, прилинкован к Linear.
+- [ ] Все acceptance criteria с фактическими свидетельствами
+- [ ] Тесты добавлены и проходят
+- [ ] `npm run lint` + `cargo clippy` чисто
+- [ ] Собирается в dev и release
+- [ ] SENAR-ревью на уровне задачи
+- [ ] CLAUDE.md / DESIGN.md / docs/architecture.md обновлены если нужно
+- [ ] Тупики, решения, проблемы зафиксированы
+- [ ] PR с `Closes MDP-XXX`
 
 ## Текущее состояние
-
-> Обновляй этот раздел по мере прогресса.
 
 - **Этап:** 0 — Bootstrap
 - **Версия:** 0.0.0
 - **Платформы:** Windows (primary), Linux/macOS (best-effort)
-- **Известные TODO:**
-  - Иконки приложения (`src-tauri/icons/`) — placeholder, заменить.
-  - Не настроен CI (см. issue MDP-XXX).
