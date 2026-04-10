@@ -1,0 +1,42 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -qE '(package-lock\\.json|Cargo\\.lock|tauri\\.conf\\.json)' && echo '{\"decision\":\"block\",\"reason\":\"Lock/config files are protected per CLAUDE.md\"}' || true"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /c/Projects/mdpad-plus-plus && npx prettier --write \"$CLAUDE_TOOL_INPUT_FILE_PATH\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -q '\\.rs$' && cd /c/Projects/mdpad-plus-plus/src-tauri && cargo clippy -- -D warnings 2>&1 | head -30 || true"
+          },
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -q '\\.svelte$' && cd /c/Projects/mdpad-plus-plus && npx svelte-check --tsconfig ./tsconfig.json 2>&1 | tail -15 || true"
+          },
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -qE '\\.ts$' && cd /c/Projects/mdpad-plus-plus && npx tsc --noEmit 2>&1 | tail -20 || true"
+          },
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT_FILE_PATH\" | grep -q 'src/lib/' && cd /c/Projects/mdpad-plus-plus && npx vitest run --reporter=verbose 2>&1 | tail -25 || true"
+          }
+        ]
+      }
+    ]
+  }
+}

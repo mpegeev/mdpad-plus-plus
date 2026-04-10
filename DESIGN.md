@@ -38,48 +38,48 @@ mdpad++ — это **dev-tool**, а не consumer-приложение. Визу
 /* src/styles/themes/dark.css */
 :root[data-theme="dark"] {
   /* Surfaces — от самого глубокого к самому поднятому */
-  --bg-base:        #1a1a1a;   /* фон окна */
-  --bg-elevated:    #222222;   /* сайдбар, таб-бар, статус-бар */
-  --bg-overlay:     #2a2a2a;   /* попапы, dropdowns, tooltip */
-  --bg-hover:       #2f2f2f;   /* hover состояние интерактивных элементов */
-  --bg-active:      #353535;   /* нажатое / выбранное */
-  --bg-selection:   #264f78;   /* выделение текста (VS Code стиль) */
+  --bg-base: #1a1a1a; /* фон окна */
+  --bg-elevated: #222222; /* сайдбар, таб-бар, статус-бар */
+  --bg-overlay: #2a2a2a; /* попапы, dropdowns, tooltip */
+  --bg-hover: #2f2f2f; /* hover состояние интерактивных элементов */
+  --bg-active: #353535; /* нажатое / выбранное */
+  --bg-selection: #264f78; /* выделение текста (VS Code стиль) */
 
   /* Text */
-  --fg-primary:     #e4e4e4;   /* основной текст */
-  --fg-secondary:   #9a9a9a;   /* подписи, подсказки, инактив */
-  --fg-tertiary:    #6b6b6b;   /* декоративный текст, disabled */
-  --fg-inverted:    #1a1a1a;   /* текст на ярком фоне (кнопка accent) */
+  --fg-primary: #e4e4e4; /* основной текст */
+  --fg-secondary: #9a9a9a; /* подписи, подсказки, инактив */
+  --fg-tertiary: #6b6b6b; /* декоративный текст, disabled */
+  --fg-inverted: #1a1a1a; /* текст на ярком фоне (кнопка accent) */
 
   /* Borders — тонкие, почти незаметные */
-  --border-subtle:  #2e2e2e;   /* между панелями */
-  --border-default: #3a3a3a;   /* у input, card */
-  --border-strong:  #4a4a4a;   /* focus ring */
+  --border-subtle: #2e2e2e; /* между панелями */
+  --border-default: #3a3a3a; /* у input, card */
+  --border-strong: #4a4a4a; /* focus ring */
 
   /* Accent — единственный яркий цвет */
-  --accent:         #4f9cff;   /* активная вкладка, кнопка, focus */
-  --accent-hover:   #67abff;
-  --accent-muted:   #2d4d7a;   /* фон выделенной строки, badge */
+  --accent: #4f9cff; /* активная вкладка, кнопка, focus */
+  --accent-hover: #67abff;
+  --accent-muted: #2d4d7a; /* фон выделенной строки, badge */
 
   /* Semantic */
-  --danger:         #ff5c5c;   /* несохранённые документы, ошибки */
-  --warning:        #e0c060;   /* изменённые строки в gutter */
-  --success:        #6ec46e;   /* добавленные строки в gutter, saved */
+  --danger: #ff5c5c; /* несохранённые документы, ошибки */
+  --warning: #e0c060; /* изменённые строки в gutter */
+  --success: #6ec46e; /* добавленные строки в gutter, saved */
 
   /* Gutter / diff */
   --gutter-modified: var(--warning);
-  --gutter-added:    var(--success);
-  --gutter-deleted:  var(--danger);
+  --gutter-added: var(--success);
+  --gutter-deleted: var(--danger);
 
   /* Syntax (для подсветки Markdown в raw-режиме) */
-  --syntax-heading:  #4f9cff;
+  --syntax-heading: #4f9cff;
   --syntax-emphasis: #e4e4e4;
-  --syntax-strong:   #ffffff;
-  --syntax-code:     #e0c060;
-  --syntax-link:     #67abff;
-  --syntax-quote:    #9a9a9a;
-  --syntax-list:     #9a9a9a;
-  --syntax-hr:       #3a3a3a;
+  --syntax-strong: #ffffff;
+  --syntax-code: #e0c060;
+  --syntax-link: #67abff;
+  --syntax-quote: #9a9a9a;
+  --syntax-list: #9a9a9a;
+  --syntax-hr: #3a3a3a;
 }
 ```
 
@@ -94,30 +94,32 @@ mdpad++ — это **dev-tool**, а не consumer-приложение. Визу
 ```css
 :root {
   /* Families */
-  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto,
-             "Helvetica Neue", sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono",
-               "Fira Code", Menlo, Consolas, monospace;
-  --font-prose: var(--font-ui);  /* для rendered markdown */
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto,
+    "Helvetica Neue", sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", "Fira Code",
+    Menlo, Consolas, monospace;
+  --font-prose: var(--font-ui); /* для rendered markdown */
 
   /* Sizes (type scale 1.125 — "major second") */
-  --fs-xs:   11px;   /* бэйджи, мелкие подсказки */
-  --fs-sm:   12px;   /* sidebar, tabs, statusbar */
-  --fs-base: 13px;   /* body UI */
-  --fs-md:   14px;   /* editor default */
-  --fs-lg:   16px;   /* заголовки панелей */
-  --fs-xl:   20px;   /* rendered H2 */
-  --fs-2xl:  24px;   /* rendered H1 */
+  --fs-xs: 11px; /* бэйджи, мелкие подсказки */
+  --fs-sm: 12px; /* sidebar, tabs, statusbar */
+  --fs-base: 13px; /* body UI */
+  --fs-md: 14px; /* editor default */
+  --fs-lg: 16px; /* заголовки панелей */
+  --fs-xl: 20px; /* rendered H2 */
+  --fs-2xl: 24px; /* rendered H1 */
 
   /* Line heights */
-  --lh-tight:  1.2;
+  --lh-tight: 1.2;
   --lh-normal: 1.5;
-  --lh-prose:  1.65;  /* только для rendered markdown */
+  --lh-prose: 1.65; /* только для rendered markdown */
 
   /* Weights */
   --fw-regular: 400;
-  --fw-medium:  500;
-  --fw-bold:    600;  /* никаких 700+ */
+  --fw-medium: 500;
+  --fw-bold: 600; /* никаких 700+ */
 }
 ```
 
@@ -129,31 +131,31 @@ mdpad++ — это **dev-tool**, а не consumer-приложение. Визу
 
 ```css
 :root {
-  --space-0:  0;
-  --space-1:  4px;
-  --space-2:  8px;
-  --space-3:  12px;
-  --space-4:  16px;
-  --space-5:  20px;
-  --space-6:  24px;
-  --space-8:  32px;
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
 
   /* Радиусы — минимум, никаких больших скруглений */
-  --radius-sm: 3px;  /* input, button, tab */
-  --radius-md: 4px;  /* panel, card, dropdown */
-  --radius-lg: 6px;  /* overlay (только для больших поверхностей) */
+  --radius-sm: 3px; /* input, button, tab */
+  --radius-md: 4px; /* panel, card, dropdown */
+  --radius-lg: 6px; /* overlay (только для больших поверхностей) */
 
   /* Высота интерактивных элементов */
-  --h-control-sm: 24px;  /* кнопки в тулбарах, теги */
-  --h-control-md: 28px;  /* стандартная кнопка, input */
-  --h-control-lg: 32px;  /* primary CTA */
+  --h-control-sm: 24px; /* кнопки в тулбарах, теги */
+  --h-control-md: 28px; /* стандартная кнопка, input */
+  --h-control-lg: 32px; /* primary CTA */
 
   /* Ширины панелей */
   --sidebar-width-default: 240px;
-  --sidebar-width-min:     160px;
-  --sidebar-width-max:     480px;
-  --tabs-height:           32px;
-  --statusbar-height:      22px;
+  --sidebar-width-min: 160px;
+  --sidebar-width-max: 480px;
+  --tabs-height: 32px;
+  --statusbar-height: 22px;
 }
 ```
 
@@ -163,8 +165,8 @@ mdpad++ — это **dev-tool**, а не consumer-приложение. Визу
 
 ```css
 :root {
-  --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.4),
-                    0 0 0 1px var(--border-default);
+  --shadow-overlay:
+    0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-default);
 }
 ```
 
@@ -172,10 +174,10 @@ mdpad++ — это **dev-tool**, а не consumer-приложение. Визу
 
 ```css
 :root {
-  --motion-instant: 0ms;     /* hover background */
-  --motion-fast:    100ms;   /* появление tooltip, dropdown */
-  --motion-normal:  150ms;   /* перерендер блока при F2 */
-  --ease-out:       cubic-bezier(0.2, 0, 0, 1);
+  --motion-instant: 0ms; /* hover background */
+  --motion-fast: 100ms; /* появление tooltip, dropdown */
+  --motion-normal: 150ms; /* перерендер блока при F2 */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
 }
 ```
 
