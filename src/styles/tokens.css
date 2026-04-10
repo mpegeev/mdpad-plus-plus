@@ -1,0 +1,78 @@
+/* Design tokens: typography, spacing, shadows, animations.
+   Colors are in src/styles/themes/dark.css and themes/light.css. */
+
+:root {
+  /* --- Typography --- */
+
+  /* Families */
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto,
+    "Helvetica Neue", sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", "Fira Code",
+    Menlo, Consolas, monospace;
+  --font-prose: var(--font-ui); /* for rendered markdown */
+
+  /* Sizes (type scale 1.125 — "major second") */
+  --fs-xs: 11px; /* badges, small hints */
+  --fs-sm: 12px; /* sidebar, tabs, statusbar */
+  --fs-base: 13px; /* body UI */
+  --fs-md: 14px; /* editor default */
+  --fs-lg: 16px; /* panel headings */
+  --fs-xl: 20px; /* rendered H2 */
+  --fs-2xl: 24px; /* rendered H1 */
+
+  /* Line heights */
+  --lh-tight: 1.2;
+  --lh-normal: 1.5;
+  --lh-prose: 1.65; /* rendered markdown only */
+
+  /* Weights */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-bold: 600; /* no 700+ */
+
+  /* --- Spacing (4px grid) --- */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* --- Border radii — minimal, no large roundings --- */
+  --radius-sm: 3px; /* input, button, tab */
+  --radius-md: 4px; /* panel, card, dropdown */
+  --radius-lg: 6px; /* overlay (large surfaces only) */
+
+  /* --- Control heights --- */
+  --h-control-sm: 24px; /* toolbar buttons, tags */
+  --h-control-md: 28px; /* standard button, input */
+  --h-control-lg: 32px; /* primary CTA */
+
+  /* --- Panel dimensions --- */
+  --sidebar-width-default: 240px;
+  --sidebar-width-min: 160px;
+  --sidebar-width-max: 480px;
+  --tabs-height: 32px;
+  --statusbar-height: 22px;
+
+  /* --- Prose --- */
+  --prose-max-width: 72ch;
+
+  /* --- Shadows — overlay only --- */
+  --shadow-overlay:
+    0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-default);
+
+  /* --- Animations --- */
+  --motion-instant: 0ms; /* hover background */
+  --motion-fast: 100ms; /* tooltip, dropdown appear */
+  --motion-normal: 150ms; /* block re-render on F2 */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+  /* --- Scrollbar --- */
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
+}

@@ -1,0 +1,48 @@
+/* Dark theme — default. All values copied verbatim from DESIGN.md. */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  /* Surfaces — deepest to most elevated */
+  --bg-base: #1a1a1a; /* window background */
+  --bg-elevated: #222222; /* sidebar, tab bar, status bar */
+  --bg-overlay: #2a2a2a; /* popups, dropdowns, tooltips */
+  --bg-hover: #2f2f2f; /* hover state for interactive elements */
+  --bg-active: #353535; /* pressed / selected */
+  --bg-selection: #264f78; /* text selection (VS Code style) */
+
+  /* Text */
+  --fg-primary: #e4e4e4; /* primary text */
+  --fg-secondary: #9a9a9a; /* labels, hints, inactive */
+  --fg-tertiary: #6b6b6b; /* decorative text, disabled */
+  --fg-inverted: #1a1a1a; /* text on bright background (accent button) */
+
+  /* Borders — thin, nearly invisible */
+  --border-subtle: #2e2e2e; /* between panels */
+  --border-default: #3a3a3a; /* input, card */
+  --border-strong: #4a4a4a; /* focus ring */
+
+  /* Accent — single bright color */
+  --accent: #4f9cff; /* active tab, button, focus */
+  --accent-hover: #67abff;
+  --accent-muted: #2d4d7a; /* selected row background, badge */
+
+  /* Semantic */
+  --danger: #ff5c5c; /* unsaved documents, errors */
+  --warning: #e0c060; /* modified lines in gutter */
+  --success: #6ec46e; /* added lines in gutter, saved */
+
+  /* Gutter / diff */
+  --gutter-modified: var(--warning);
+  --gutter-added: var(--success);
+  --gutter-deleted: var(--danger);
+
+  /* Syntax (markdown highlight in raw mode) */
+  --syntax-heading: #4f9cff;
+  --syntax-emphasis: #e4e4e4;
+  --syntax-strong: #ffffff;
+  --syntax-code: #e0c060;
+  --syntax-link: #67abff;
+  --syntax-quote: #9a9a9a;
+  --syntax-list: #9a9a9a;
+  --syntax-hr: #3a3a3a;
+}

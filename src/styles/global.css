@@ -1,33 +1,67 @@
-:root {
-  /* Темы будут переопределяться в src/lib/settings (MDP-26).
-     Пока — дефолтная тёмная тема. */
-  --bg: #1e1e1e;
-  --bg-elevated: #252526;
-  --fg: #e6e6e6;
-  --fg-muted: #9d9d9d;
-  --accent: #4f9cff;
-  --border: #3c3c3c;
-  --danger: #ff5c5c;
-  --warning: #e0c060;
-  --success: #6ec46e;
-  --gutter-modified: #e0c060;
-  --gutter-added: #6ec46e;
-  --gutter-deleted: #ff5c5c;
+/* All @import must come first per CSS spec */
+@import "./tokens.css";
+@import "./themes/dark.css";
+@import "./themes/light.css";
+@import "tailwindcss";
 
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  color-scheme: dark;
+/* Tailwind v4: theme tokens mapped to CSS custom properties.
+   No hardcoded values — every entry references a variable from tokens.css / themes/. */
+@theme inline {
+  /* Surfaces */
+  --color-bg-base: var(--bg-base);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-overlay: var(--bg-overlay);
+  --color-bg-hover: var(--bg-hover);
+  --color-bg-active: var(--bg-active);
+  --color-bg-selection: var(--bg-selection);
+
+  /* Text */
+  --color-fg-primary: var(--fg-primary);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-tertiary: var(--fg-tertiary);
+  --color-fg-inverted: var(--fg-inverted);
+
+  /* Borders */
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  /* Accent */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
+
+  /* Semantic */
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+
+  /* Typography */
+  --font-family-ui: var(--font-ui);
+  --font-family-mono: var(--font-mono);
+  --font-family-prose: var(--font-prose);
+
+  --font-size-xs: var(--fs-xs);
+  --font-size-sm: var(--fs-sm);
+  --font-size-base: var(--fs-base);
+  --font-size-md: var(--fs-md);
+  --font-size-lg: var(--fs-lg);
+  --font-size-xl: var(--fs-xl);
+  --font-size-2xl: var(--fs-2xl);
 }
+
+/* --- Base reset --- */
 
 html,
 body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
@@ -36,7 +70,7 @@ body {
   height: 100%;
 }
 
-/* В областях с контентом разрешаем выделение */
+/* Allow selection inside content areas */
 .editable,
 .editable * {
   user-select: text;

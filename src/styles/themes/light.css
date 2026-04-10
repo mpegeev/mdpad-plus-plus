@@ -1,0 +1,43 @@
+/* Light theme — stub, designed in MDP-27.
+   Key principles: white background #ffffff, text #1a1a1a,
+   barely-visible borders, same accent blue #4f9cff. */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg-base: #ffffff;
+  --bg-elevated: #f5f5f5;
+  --bg-overlay: #eeeeee;
+  --bg-hover: #e8e8e8;
+  --bg-active: #e0e0e0;
+  --bg-selection: #cce4ff;
+
+  --fg-primary: #1a1a1a;
+  --fg-secondary: #6b6b6b;
+  --fg-tertiary: #9a9a9a;
+  --fg-inverted: #ffffff;
+
+  --border-subtle: #e8e8e8;
+  --border-default: #d4d4d4;
+  --border-strong: #b0b0b0;
+
+  --accent: #4f9cff;
+  --accent-hover: #67abff;
+  --accent-muted: #dceeff;
+
+  --danger: #d93030;
+  --warning: #a07820;
+  --success: #3a8a3a;
+
+  --gutter-modified: var(--warning);
+  --gutter-added: var(--success);
+  --gutter-deleted: var(--danger);
+
+  --syntax-heading: #4f9cff;
+  --syntax-emphasis: #1a1a1a;
+  --syntax-strong: #000000;
+  --syntax-code: #a07820;
+  --syntax-link: #67abff;
+  --syntax-quote: #6b6b6b;
+  --syntax-list: #6b6b6b;
+  --syntax-hr: #d4d4d4;
+}
