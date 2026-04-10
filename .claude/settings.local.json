@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(CARGO_HTTP_CHECK_REVOKE=false cargo check)",
+      "Bash(npm info:*)",
+      "Bash(npm run:*)",
+      "Bash(npm list:*)",
+      "mcp__linear__save_issue"
+    ]
+  }
+}
