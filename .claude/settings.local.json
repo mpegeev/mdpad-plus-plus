@@ -6,7 +6,9 @@
       "Bash(npm info:*)",
       "Bash(npm run:*)",
       "Bash(npm list:*)",
-      "mcp__linear__save_issue"
+      "mcp__linear__save_issue",
+      "mcp__linear__list_issues",
+      "mcp__linear__get_issue"
     ]
   }
 }
