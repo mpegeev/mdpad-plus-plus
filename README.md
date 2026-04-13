@@ -1,5 +1,7 @@
 # mdpad++
 
+[![CI](https://github.com/mpegeev/mdpad-plus-plus/actions/workflows/ci.yml/badge.svg)](https://github.com/mpegeev/mdpad-plus-plus/actions/workflows/ci.yml)
+
 Лёгкий кроссплатформенный редактор Markdown-заметок.
 Гибрид Notepad++ и Typora: вкладки, дерево файлов, inline-рендер MD,
 переключение в raw-режим по F2, мгновенный запуск даже на больших документах.
