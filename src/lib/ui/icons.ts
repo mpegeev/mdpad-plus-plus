@@ -45,6 +45,15 @@ export const icons = {
     ],
     ["circle", { cx: "12", cy: "12", r: "3" }],
   ],
+  "panel-left": [
+    ["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2" }],
+    ["path", { d: "M9 3v18" }],
+  ],
+  "panel-left-close": [
+    ["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2" }],
+    ["path", { d: "M9 3v18" }],
+    ["path", { d: "m16 15-3-3 3-3" }],
+  ],
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof icons;
