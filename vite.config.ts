@@ -1,11 +1,13 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { svelteTesting } from "@testing-library/svelte/vite";
 
 // Tauri ожидает фиксированный порт и не использует эту переменную
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [svelte(), svelteTesting()],
 
   // Запрещаем Vite очищать терминал, чтобы не съедать вывод Rust
   clearScreen: false,
@@ -36,5 +38,11 @@ export default defineConfig({
     alias: {
       $lib: "/src/lib",
     },
+  },
+
+  test: {
+    environment: "jsdom",
+    globals: false,
+    include: ["src/**/*.test.{ts,js}"],
   },
 });
