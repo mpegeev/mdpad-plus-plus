@@ -3,6 +3,7 @@
 // задач MDP-5..MDP-7.
 
 mod fs_commands;
+mod granted_roots;
 
 #[tauri::command]
 fn ping() -> &'static str {

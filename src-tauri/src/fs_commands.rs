@@ -20,6 +20,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_dialog::{DialogExt, FilePath};
 
+use crate::granted_roots;
+
 /// Запись о файле или директории внутри `list_dir`.
 #[derive(Debug, Serialize)]
 pub struct DirEntry {
@@ -144,13 +146,24 @@ fn canonicalize_existing_or_ancestor(raw: &Path) -> Result<PathBuf, String> {
     }
 }
 
-/// Резолвит разрешённые корни ($APPDATA и $DOCUMENT) через Tauri path API.
+/// Путь к файлу с набором разрешённых пользователем путей под $APPDATA (MDP-44).
+fn granted_roots_file<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("granted_roots_file: app_data_dir: {e}"))?;
+    Ok(dir.join(granted_roots::GRANTS_FILE_NAME))
+}
+
+/// Собирает список разрешённых корней через Tauri path API: базовые
+/// ($APPDATA, $DOCUMENT) и пути, выбранные пользователем через системный диалог
+/// (MDP-44, см. модуль granted_roots).
 /// Несуществующий $APPDATA создаётся (app_data_dir — наш собственный каталог).
 fn allowed_roots<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<PathBuf>, String> {
     let mut roots: Vec<PathBuf> = Vec::new();
     let resolver = app.path();
 
-    match resolver.app_data_dir() {
+    let app_data = match resolver.app_data_dir() {
         Ok(dir) => {
             // app_data_dir может ещё не существовать при первом запуске —
             // создаём, чтобы canonicalize корня прошёл (fail-closed иначе).
@@ -159,16 +172,26 @@ fn allowed_roots<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<PathBuf>, String>
                     format!("allowed_roots: create app_data_dir {}: {e}", dir.display())
                 })?;
             }
-            roots.push(dir);
+            dir
         }
         Err(e) => return Err(format!("allowed_roots: app_data_dir: {e}")),
-    }
+    };
+    roots.push(app_data.clone());
 
     // $DOCUMENT может отсутствовать в headless/CI-окружении — это не фатально,
     // просто Documents не будет среди разрешённых корней.
     if let Ok(dir) = resolver.document_dir() {
         if dir.exists() {
             roots.push(dir);
+        }
+    }
+
+    // Пути, разрешённые пользователем через диалог (только существующие — см.
+    // load_granted_roots). Пропускаем уже добавленные базовые корни.
+    let grants_file = app_data.join(granted_roots::GRANTS_FILE_NAME);
+    for granted in granted_roots::load_granted_roots(&grants_file) {
+        if !roots.contains(&granted) {
+            roots.push(granted);
         }
     }
 
@@ -254,6 +277,22 @@ fn list_dir_in(path: &str, allowed_roots: &[PathBuf]) -> Result<Vec<DirEntry>, S
     Ok(entries)
 }
 
+/// Добавляет `path` в набор разрешённых путей (MDP-44). Сбой не критичен для
+/// самого выбора — пользователь уже выбрал ресурс; без успешной записи лишь
+/// последующие операции с этим путём будут отклонены проверкой. Пишем в stderr.
+fn grant_picked<R: Runtime>(app: &AppHandle<R>, path: &Path) {
+    let file = match granted_roots_file(app) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("grant_picked: {e}");
+            return;
+        }
+    };
+    if let Err(e) = granted_roots::grant_root(&file, path) {
+        eprintln!("grant_picked: {e}");
+    }
+}
+
 /// Превращает результат диалога Tauri в `Option<String>`-путь.
 /// Отмена пользователем -> Ok(None); проблемы конвертации -> Err.
 fn file_path_to_string(file_path: Option<FilePath>) -> Result<Option<String>, String> {
@@ -296,7 +335,13 @@ pub async fn pick_open_file<R: Runtime>(
         builder = builder.set_directory(dir);
     }
     let fp = await_dialog(move |cb| builder.pick_file(cb)).await?;
-    file_path_to_string(fp)
+    let result = file_path_to_string(fp)?;
+    // Разрешаем доступ к выбранному файлу — именно к нему, не ко всему каталогу
+    // (минимально необходимый доступ).
+    if let Some(ref p) = result {
+        grant_picked(&app, Path::new(p));
+    }
+    Ok(result)
 }
 
 /// Открыть диалог сохранения файла (Save As).
@@ -307,7 +352,17 @@ pub async fn pick_save_file<R: Runtime>(
 ) -> Result<Option<String>, String> {
     let builder = app.dialog().file().set_file_name(default_name);
     let fp = await_dialog(move |cb| builder.save_file(cb)).await?;
-    file_path_to_string(fp)
+    let result = file_path_to_string(fp)?;
+    // Целевого файла ещё нет, поэтому разрешаем доступ к его родительскому
+    // каталогу (он существует), чтобы write_file прошёл проверку.
+    if let Some(ref p) = result {
+        if let Some(parent) = Path::new(p).parent() {
+            if !parent.as_os_str().is_empty() {
+                grant_picked(&app, parent);
+            }
+        }
+    }
+    Ok(result)
 }
 
 /// Открыть диалог выбора папки.
@@ -321,7 +376,13 @@ pub async fn pick_folder<R: Runtime>(
         builder = builder.set_directory(dir);
     }
     let fp = await_dialog(move |cb| builder.pick_folder(cb)).await?;
-    file_path_to_string(fp)
+    let result = file_path_to_string(fp)?;
+    // Разрешаем доступ к выбранной папке — её листинг и чтение файлов внутри
+    // пройдут проверку (вложенные пути начинаются с этого корня).
+    if let Some(ref p) = result {
+        grant_picked(&app, Path::new(p));
+    }
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -640,6 +701,104 @@ mod tests {
         assert_eq!(got, "hello");
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    /// MDP-44: путь под разрешённым (через диалог) корнем проходит проверку;
+    /// невыбранный внешний путь и `..` по-прежнему отклоняются.
+    #[test]
+    fn granted_root_enables_child_access() {
+        let base = tmp_root("base_root"); // имитирует $APPDATA
+        let granted_dir = tmp_root("granted_dir"); // выбран через диалог
+        let other = tmp_root("ungranted_dir"); // не выбирался
+
+        let grants_file = base.join("granted_roots.json");
+
+        let mut gfile = granted_dir.clone();
+        gfile.push("note.md");
+        fs::write(&gfile, "granted content").expect("seed granted");
+        let gpath = gfile.to_string_lossy().into_owned();
+
+        let mut ofile = other.clone();
+        ofile.push("secret.md");
+        fs::write(&ofile, "OTHER").expect("seed other");
+        let opath = ofile.to_string_lossy().into_owned();
+
+        // До разрешения: в наборе только базовый корень — внешний путь вне области.
+        let before = [base.clone()];
+        assert!(
+            read_file_in(&gpath, &before).is_err(),
+            "before grant the path must be outside scope"
+        );
+
+        // Разрешаем каталог (как сделал бы pick_folder).
+        granted_roots::grant_root(&grants_file, &granted_dir).expect("grant");
+
+        // Разрешённые = базовый корень + выбранный (как соберёт allowed_roots).
+        let mut roots = vec![base.clone()];
+        roots.extend(granted_roots::load_granted_roots(&grants_file));
+
+        // Файл под granted-корнем читается; list_dir проходит.
+        let got = read_file_in(&gpath, &roots).expect("read granted child");
+        assert_eq!(got, "granted content");
+        let dir_path = granted_dir.to_string_lossy().into_owned();
+        let entries = list_dir_in(&dir_path, &roots).expect("list granted");
+        assert!(entries.iter().any(|e| e.name == "note.md"));
+
+        // Не-granted чужой каталог по-прежнему отклоняется, без утечки контента.
+        let r = read_file_in(&opath, &roots);
+        assert!(r.is_err(), "ungranted outside path must stay rejected");
+        if let Err(e) = r {
+            assert!(!e.contains("OTHER"), "content leaked: {e}");
+        }
+
+        // `..` под разрешённым корнем по-прежнему отклоняется до системного вызова.
+        let dotdot = format!("{dir_path}/sub/../note.md");
+        assert!(
+            read_file_in(&dotdot, &roots).is_err(),
+            "dotdot must stay rejected even under granted root"
+        );
+
+        let _ = fs::remove_dir_all(&base);
+        let _ = fs::remove_dir_all(&granted_dir);
+        let _ = fs::remove_dir_all(&other);
+    }
+
+    /// MDP-44 (минимально необходимый доступ): разрешение одного файла (как
+    /// pick_open_file) даёт прочитать именно его, но не соседние файлы в той же
+    /// директории.
+    #[test]
+    fn granting_single_file_does_not_expose_siblings() {
+        let base = tmp_root("lp_base");
+        let dir = tmp_root("lp_dir");
+        let grants_file = base.join("granted_roots.json");
+
+        let mut f1 = dir.clone();
+        f1.push("opened.md");
+        fs::write(&f1, "OPENED").expect("seed f1");
+        let mut f2 = dir.clone();
+        f2.push("sibling.md");
+        fs::write(&f2, "SIBLING").expect("seed f2");
+        let p1 = f1.to_string_lossy().into_owned();
+        let p2 = f2.to_string_lossy().into_owned();
+
+        // Разрешаем только файл f1 (как pick_open_file).
+        granted_roots::grant_root(&grants_file, &f1).expect("grant file");
+        let mut roots = vec![base.clone()];
+        roots.extend(granted_roots::load_granted_roots(&grants_file));
+
+        // f1 читается; сосед f2 недоступен (разрешён был файл, не каталог).
+        assert_eq!(read_file_in(&p1, &roots).expect("read opened"), "OPENED");
+        let r = read_file_in(&p2, &roots);
+        assert!(
+            r.is_err(),
+            "sibling must NOT be exposed by single-file grant"
+        );
+        if let Err(e) = r {
+            assert!(!e.contains("SIBLING"), "sibling content leaked: {e}");
+        }
+
+        let _ = fs::remove_dir_all(&base);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     /// Пустой список разрешённых корней -> Err (пустая конфигурация падает).
