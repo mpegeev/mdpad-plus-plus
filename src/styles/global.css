@@ -48,6 +48,7 @@
   --font-size-lg: var(--fs-lg);
   --font-size-xl: var(--fs-xl);
   --font-size-2xl: var(--fs-2xl);
+  --font-size-3xl: var(--fs-3xl);
 }
 
 /* --- Base reset --- */

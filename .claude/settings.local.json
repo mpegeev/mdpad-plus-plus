@@ -13,7 +13,11 @@
       "Bash(git add:*)",
       "Bash(git push:*)",
       "mcp__linear__list_projects",
-      "mcp__linear__list_milestones"
+      "mcp__linear__list_milestones",
+      "WebFetch(domain:fonts.gstatic.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:objects.githubusercontent.com)",
+      "Bash(curl:*)"
     ]
   }
 }

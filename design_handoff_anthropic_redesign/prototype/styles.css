@@ -1,0 +1,222 @@
+/* mdpad++ — Anthropic-style design system */
+
+@import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Styrene+B:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  /* Anthropic-style warm light palette */
+  --bg-base: #faf9f5; /* main canvas — warm cream */
+  --bg-elevated: #f5f3eb; /* sidebar, tabs, status bar */
+  --bg-overlay: #ffffff; /* popups, floating toolbar */
+  --bg-hover: #efece2;
+  --bg-active: #e8e5d8;
+  --bg-selection: #e6dfc6;
+
+  --fg-primary: #191919;
+  --fg-secondary: #6b6960;
+  --fg-tertiary: #9a978c;
+  --fg-inverted: #faf9f5;
+
+  --border-subtle: #ece9dd;
+  --border-default: #ddd9c8;
+  --border-strong: #b8b3a0;
+
+  --accent: #191919;
+  --accent-hover: #000000;
+  --accent-muted: rgba(25, 25, 25, 0.08);
+  --accent-fg: #faf9f5;
+
+  --danger: #c1554a;
+  --warning: #b08a3e;
+  --success: #5d8a5b;
+
+  /* Syntax (markdown raw mode) */
+  --syntax-heading: #5a4f9a;
+  --syntax-emphasis: #191919;
+  --syntax-strong: #191919;
+  --syntax-code: #a85a3e;
+  --syntax-link: #3d6b8a;
+  --syntax-quote: #6b6960;
+  --syntax-list: #6b6960;
+  --syntax-hr: #ddd9c8;
+  --syntax-marker: #b8b3a0;
+
+  /* Typography */
+  --font-ui:
+    "Styrene B", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Helvetica Neue", sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas,
+    monospace;
+  --font-prose: "Source Serif 4", "Charter", "Iowan Old Style", Georgia, serif;
+
+  /* Sizes */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 28px;
+  --fs-3xl: 36px;
+
+  --lh-tight: 1.2;
+  --lh-normal: 1.5;
+  --lh-prose: 1.7;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-bold: 600;
+
+  /* Spacing — 4px grid */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  --h-control-sm: 24px;
+  --h-control-md: 28px;
+  --h-control-lg: 32px;
+
+  --sidebar-width: 240px;
+  --tabs-height: 36px;
+  --statusbar-height: 24px;
+  --titlebar-height: 32px;
+  --tab-max-width: 220px;
+  --accent-indicator: 2px;
+
+  --prose-max-width: 72ch;
+
+  --shadow-overlay:
+    0 1px 2px rgba(25, 25, 25, 0.04), 0 8px 24px rgba(25, 25, 25, 0.08),
+    0 0 0 1px var(--border-default);
+  --shadow-sm: 0 1px 2px rgba(25, 25, 25, 0.04);
+
+  --motion-fast: 100ms;
+  --motion-normal: 150ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+
+[data-theme="dark"] {
+  --bg-base: #1c1b18;
+  --bg-elevated: #232220;
+  --bg-overlay: #2a2826;
+  --bg-hover: #2f2d2a;
+  --bg-active: #353330;
+  --bg-selection: #4a4530;
+
+  --fg-primary: #ebe9e0;
+  --fg-secondary: #9a978c;
+  --fg-tertiary: #6b6960;
+  --fg-inverted: #1c1b18;
+
+  --border-subtle: #2a2826;
+  --border-default: #3a3733;
+  --border-strong: #5a564f;
+
+  --accent: #ebe9e0;
+  --accent-hover: #ffffff;
+  --accent-muted: rgba(235, 233, 224, 0.1);
+  --accent-fg: #1c1b18;
+
+  --syntax-heading: #b39ed4;
+  --syntax-code: #d99a7a;
+  --syntax-link: #7aa6c4;
+  --syntax-marker: #5a564f;
+
+  --shadow-overlay:
+    0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 1px var(--border-default);
+}
+
+[data-accent="orange"] {
+  --accent: #cc785c;
+  --accent-hover: #b86545;
+  --accent-muted: rgba(204, 120, 92, 0.12);
+  --accent-fg: #ffffff;
+}
+[data-accent="blue"] {
+  --accent: #3d6b8a;
+  --accent-hover: #2c5872;
+  --accent-muted: rgba(61, 107, 138, 0.12);
+  --accent-fg: #ffffff;
+}
+[data-accent="green"] {
+  --accent: #3d6b58;
+  --accent-hover: #2c5845;
+  --accent-muted: rgba(61, 107, 88, 0.12);
+  --accent-fg: #ffffff;
+}
+
+[data-density="compact"] {
+  --tabs-height: 30px;
+  --statusbar-height: 22px;
+  --space-row-y: 2px;
+  --editor-pad-y: 16px;
+  --editor-pad-x: 32px;
+}
+[data-density="comfortable"] {
+  --tabs-height: 40px;
+  --statusbar-height: 28px;
+  --space-row-y: 6px;
+  --editor-pad-y: 32px;
+  --editor-pad-x: 64px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-base);
+  color: var(--fg-primary);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--bg-selection);
+}
+
+/* Scrollbars */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 10px;
+  border: 2px solid var(--bg-base);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}

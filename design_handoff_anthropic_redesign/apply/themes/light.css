@@ -1,4 +1,5 @@
-/* Light theme — Anthropic-style. Warm cream surfaces, ink-black accent, serif prose.
+/* Light theme — Anthropic-style (replaces MDP-27 stub).
+   Warm cream surfaces, ink-black accent, serif prose.
    Variable names unchanged — drop-in compatible with global.css @theme map. */
 
 :root[data-theme="light"] {
@@ -23,10 +24,9 @@
   --border-default: #ddd9c8;
   --border-strong: #b8b3a0;
 
-  /* Accent — ink black (default). Presets: see [data-accent] block below. */
+  /* Accent — ink black (single). Presets: see [data-accent] block below. */
   --accent: #191919;
   --accent-hover: #000000;
-  --accent-fg: #faf9f5; /* text/icon color on accent bg */
   --accent-muted: rgba(
     25,
     25,
@@ -60,18 +60,18 @@
 :root[data-theme="light"][data-accent="coral"] {
   --accent: #cc785c;
   --accent-hover: #b86545;
-  --accent-fg: #ffffff;
   --accent-muted: rgba(204, 120, 92, 0.12);
+  --accent-fg: #ffffff;
 }
 :root[data-theme="light"][data-accent="slate"] {
   --accent: #3d6b8a;
   --accent-hover: #2c5872;
-  --accent-fg: #ffffff;
   --accent-muted: rgba(61, 107, 138, 0.12);
+  --accent-fg: #ffffff;
 }
 :root[data-theme="light"][data-accent="sage"] {
   --accent: #3d6b58;
   --accent-hover: #2c5845;
-  --accent-fg: #ffffff;
   --accent-muted: rgba(61, 107, 88, 0.12);
+  --accent-fg: #ffffff;
 }

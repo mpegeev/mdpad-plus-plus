@@ -18,6 +18,14 @@ export const icons = {
     ["path", { d: "M16 13H8" }],
     ["path", { d: "M16 17H8" }],
   ],
+  folder: [
+    [
+      "path",
+      {
+        d: "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z",
+      },
+    ],
+  ],
   "folder-open": [
     [
       "path",
@@ -53,6 +61,20 @@ export const icons = {
     ["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2" }],
     ["path", { d: "M9 3v18" }],
     ["path", { d: "m16 15-3-3 3-3" }],
+  ],
+  "wrap-text": [
+    ["path", { d: "M3 6h18" }],
+    ["path", { d: "M3 12h15a3 3 0 1 1 0 6h-4" }],
+    ["polyline", { points: "16 16 14 18 16 20" }],
+    ["path", { d: "M3 18h7" }],
+  ],
+  plus: [
+    ["path", { d: "M5 12h14" }],
+    ["path", { d: "M12 5v14" }],
+  ],
+  x: [
+    ["path", { d: "M18 6 6 18" }],
+    ["path", { d: "m6 6 12 12" }],
   ],
 } satisfies Record<string, IconNode>;
 
