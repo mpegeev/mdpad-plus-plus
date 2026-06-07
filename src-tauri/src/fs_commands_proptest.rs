@@ -58,6 +58,27 @@ fn path_with_dotdot() -> impl Strategy<Value = String> {
         .prop_map(|(pre, post)| format!("{pre}/../{post}"))
 }
 
+/// Класс кандидата для свойства 1: смешиваем заведомо-внутренние, `..`-побеги
+/// и абсолютные пути под чужим корнем — чтобы soundness проверялся на всём
+/// спектре, включая «убегающие» входы (которые обязаны давать Err).
+#[derive(Debug, Clone)]
+enum CandidateSpec {
+    /// Безопасный относительный хвост под разрешённым корнем.
+    Safe(String),
+    /// Относительный путь с компонентом `..` (побег вверх).
+    DotDot(String),
+    /// Безопасный хвост, но под НЕразрешённым (внешним) корнем.
+    Outside(String),
+}
+
+fn candidate_spec() -> impl Strategy<Value = CandidateSpec> {
+    prop_oneof![
+        safe_tail().prop_map(CandidateSpec::Safe),
+        path_with_dotdot().prop_map(CandidateSpec::DotDot),
+        safe_tail().prop_map(CandidateSpec::Outside),
+    ]
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(1000))]
 
@@ -66,14 +87,22 @@ proptest! {
     /// канонизированного разрешённого корня. Сравниваем с КАНОНИЗИРОВАННЫМ
     /// корнем (canonicalize может менять префикс: \\?\ на Windows, /var→
     /// /private/var на macOS).
+    ///
+    /// Вход намеренно СМЕШАННЫЙ (safe / `..` / абсолютный путь вне корня),
+    /// чтобы soundness проверялся и на «убегающих» входах, а не только на
+    /// гарантированно-внутренних — тогда Ok-ветка ассерта значима.
     #[test]
-    fn prop_ok_implies_within_canonical_root(tail in safe_tail()) {
+    fn prop_ok_implies_within_canonical_root(spec in candidate_spec()) {
         let root = tmp_root("p1_root");
         let canon_root = root.canonicalize().expect("canon root");
+        let outside = tmp_root("p1_outside");
         let roots = [root.clone()];
 
-        // Кандидат — присоединяем случайный хвост к корню.
-        let candidate = format!("{}/{}", root.display(), tail);
+        let candidate = match &spec {
+            CandidateSpec::Safe(tail) => format!("{}/{}", root.display(), tail),
+            CandidateSpec::DotDot(rel) => format!("{}/{}", root.display(), rel),
+            CandidateSpec::Outside(tail) => format!("{}/{}", outside.display(), tail),
+        };
 
         let result = validate_path_within(&candidate, &roots);
 
@@ -83,13 +112,14 @@ proptest! {
                 prop_assert!(
                     canonical.starts_with(&canon_root),
                     "Ok canonical {canonical:?} is OUTSIDE canonical root {canon_root:?} \
-                     (input tail: {tail:?})"
+                     (input spec: {spec:?})"
                 );
                 Ok(())
             }
         };
 
         let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&outside);
         outcome?;
     }
 
