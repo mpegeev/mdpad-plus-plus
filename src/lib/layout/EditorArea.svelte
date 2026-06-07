@@ -2,27 +2,30 @@
   import Icon from "$lib/ui/Icon.svelte";
   import Button from "$lib/ui/Button.svelte";
   import Editor from "$lib/editor/Editor.svelte";
+  import {
+    getActive,
+    updateBuffer,
+    createUntitled,
+  } from "$lib/stores/documents.svelte";
 
-  // Until the document store from MDP-8 lands, we keep a local sample doc.
-  // The "Создать файл" button simulates "open" by populating it. This page
-  // exists to show the Editor component works end-to-end inside the layout.
-  let sampleDoc = $state("");
+  // The active document comes from the shared store (MDP-8). Editing the
+  // buffer flows back via updateBuffer; if no document is open we show the
+  // welcome empty-state.
+  const active = $derived(getActive());
 
-  function openSample() {
-    sampleDoc =
-      "# Hello\n\n" +
-      "Welcome to **mdpad++** — write markdown, see syntax highlighting, " +
-      "use `Ctrl+Z` to undo.\n\n" +
-      "## Subheading\n\n" +
-      "- Item one\n" +
-      "- Item two\n\n" +
-      "> A quote in serif… for inspiration.\n";
+  function onCreate() {
+    createUntitled();
   }
 </script>
 
-{#if sampleDoc.length > 0}
+{#if active}
   <section class="editor" aria-label="Editor">
-    <Editor doc={sampleDoc} onDocChange={(next) => (sampleDoc = next)} />
+    {#key active.id}
+      <Editor
+        doc={active.buffer}
+        onDocChange={(next) => updateBuffer(active.id, next)}
+      />
+    {/key}
   </section>
 {:else}
   <section class="editor editor--empty" aria-label="Editor">
@@ -38,13 +41,9 @@
         активный блок между рендером и raw-режимом.
       </p>
       <div class="editor__empty-actions">
-        <Button variant="primary" onclick={openSample}>
+        <Button variant="primary" onclick={onCreate}>
           <Icon name="plus" size={13} />
           Создать файл
-        </Button>
-        <Button variant="ghost" disabled>
-          <Icon name="folder-open" size={13} />
-          Открыть…
         </Button>
       </div>
       <div class="editor__empty-shortcuts">

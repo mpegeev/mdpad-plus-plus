@@ -1,5 +1,13 @@
 <script lang="ts">
   import Icon from "$lib/ui/Icon.svelte";
+  import {
+    getDocuments,
+    getActiveId,
+    isDirty,
+    setActive,
+    closeTab,
+    createUntitled,
+  } from "$lib/stores/documents.svelte";
 
   interface Props {
     sidebarCollapsed: boolean;
@@ -7,6 +15,16 @@
   }
 
   const { sidebarCollapsed, onToggleSidebar }: Props = $props();
+
+  // Tabs are driven by the shared document store (MDP-8 + MDP-9 wiring).
+  const documents = $derived(getDocuments());
+  const activeId = $derived(getActiveId());
+
+  function onCloseTab(e: MouseEvent, id: string) {
+    // Stop the click from also activating the tab being closed.
+    e.stopPropagation();
+    closeTab(id);
+  }
 </script>
 
 <div class="tabs-bar" role="toolbar" aria-label="Document tabs">
@@ -23,39 +41,53 @@
     />
   </button>
 
-  <!-- Visual tab strip only. Full WAI-ARIA tablist/tab/tabpanel pattern with
-       aria-controls bindings lands in MDP-19 (tabs drag-reorder + context
-       menu) when tab activation logic exists. Until then, these are static
-       previews and the role attributes would be broken (no real tabpanels). -->
+  <!-- Full WAI-ARIA tablist/tab/tabpanel pattern with aria-controls bindings
+       lands in MDP-19 (drag-reorder + context menu). For now tabs activate and
+       close; roles stay minimal to avoid promising a tabpanel that does not
+       yet exist. -->
   <div class="tabs-bar__tabs">
-    <div class="tab tab--active">
-      <Icon name="file-text" size={14} />
-      <span class="tab__title">untitled.md</span>
-      <button
-        class="tab__close"
-        type="button"
-        aria-label="Close tab"
-        tabindex="-1"
+    {#each documents as doc (doc.id)}
+      <div
+        class="tab"
+        class:tab--active={doc.id === activeId}
+        class:tab--dirty={isDirty(doc.id)}
+        role="button"
+        tabindex="0"
+        title={doc.path ?? doc.name}
+        onclick={() => setActive(doc.id)}
+        onkeydown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setActive(doc.id);
+          }
+        }}
       >
-        <Icon name="x" size={12} />
-      </button>
-    </div>
-    <div class="tab tab--dirty">
-      <span class="tab__dot" aria-label="Unsaved"></span>
-      <span class="tab__title">notes.md</span>
-      <button
-        class="tab__close"
-        type="button"
-        aria-label="Close tab"
-        tabindex="-1"
-      >
-        <Icon name="x" size={12} />
-      </button>
-    </div>
+        {#if isDirty(doc.id)}
+          <span class="tab__dot" aria-label="Unsaved"></span>
+        {:else}
+          <Icon name="file-text" size={14} />
+        {/if}
+        <span class="tab__title">{doc.name}</span>
+        <button
+          class="tab__close"
+          type="button"
+          aria-label="Close tab"
+          tabindex="-1"
+          onclick={(e) => onCloseTab(e, doc.id)}
+        >
+          <Icon name="x" size={12} />
+        </button>
+      </div>
+    {/each}
   </div>
 
   <div class="tabs-bar__right">
-    <button class="tabs-bar__icon-btn" type="button" aria-label="New tab">
+    <button
+      class="tabs-bar__icon-btn"
+      type="button"
+      aria-label="New tab"
+      onclick={() => createUntitled()}
+    >
       <Icon name="plus" size={14} />
     </button>
   </div>
