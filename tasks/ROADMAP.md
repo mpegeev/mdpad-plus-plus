@@ -3,7 +3,7 @@
 > Дорожная карта Linear-задач с учётом зависимостей и возможностей параллельной работы в worktree.
 > Каждая задача = отдельный PR. Звёздочка ★ = можно параллелить в worktree.
 > Зафиксировано: 2026-06-06 (после создания MDP-38).
-> Обновлено: 2026-06-07 (MDP-6/7/8/11 в review; добавлены MDP-39..43 — follow-ups после SENAR-ревью M2-batch).
+> Обновлено: 2026-06-07 (Фаза 1 / M2 Editor Foundation **завершена**: MDP-6/7/8/11/43 смержены, затем MDP-10/9/39/42 реализованы в параллельных worktree и смержены).
 
 ## Принципы
 
@@ -11,7 +11,7 @@
 - В worktree можно гнать задачи, которые трогают непересекающиеся файлы.
 - Если две задачи правят один `.svelte` или `tokens.css` — мержить мучительно → последовательно.
 - После закрытия каждой фазы — пересмотр scope последующих задач, если контекст изменился.
-- **Для детерминированных задач (парсер, валидатор, трансформер, pure function) тесты пишет отдельный субагент `test-writer`** — будет внедрено в MDP-43, обязательно до MDP-9/10/12+.
+- **Для детерминированных задач (парсер, валидатор, трансформер, pure function) тесты пишет отдельный субагент `test-writer`** — внедрено в MDP-43 (✅ merged), действует начиная с MDP-12+.
 
 ---
 
@@ -23,35 +23,43 @@
 
 ---
 
-## Фаза 1 · M2 Editor Foundation (4 параллельных worktree) — в review
+## Фаза 1 · M2 Editor Foundation — ✅ завершена
 
-Все 4 задачи реализованы параллельно через background-агентов в отдельных worktree, PR открыты, ожидают мержа.
+Все задачи фазы реализованы (часть — параллельно в worktree) и смержены в `main`.
 
-| #   | Задача                                               | Статус       | PR                                                        | Worktree | Зависит от | Файлы                                                                |
-| --- | ---------------------------------------------------- | ------------ | --------------------------------------------------------- | -------- | ---------- | -------------------------------------------------------------------- |
-| 2   | ★ **MDP-7** Tauri fs commands (read/write/dialog)    | 🟡 in review | [#9](https://github.com/mpegeev/mdpad-plus-plus/pull/9)   | A        | MDP-38     | `src-tauri/src/fs_commands.rs`, `src/lib/fs.ts`                      |
-| 3   | ★ **MDP-8** Document store (open files, dirty, tabs) | 🟡 in review | [#10](https://github.com/mpegeev/mdpad-plus-plus/pull/10) | B        | MDP-38     | `src/lib/stores/documents.svelte.ts`                                 |
-| 4   | ★ **MDP-6** CodeMirror 6 + Markdown lang             | 🟡 in review | [#11](https://github.com/mpegeev/mdpad-plus-plus/pull/11) | C        | MDP-38     | `src/lib/editor/Editor.svelte`, замена welcome в `EditorArea.svelte` |
-| 5   | ★ **MDP-11** Markdown block parser (pure fn, M3)     | 🟡 in review | [#12](https://github.com/mpegeev/mdpad-plus-plus/pull/12) | D        | —          | `src/lib/markdown/blocks.ts`                                         |
+### M2-batch (4 параллельных worktree)
 
-### Сразу после мержа M2-batch — process улучшение (urgent, последовательно)
+| #   | Задача                                               | Статус    | PR                                                        | Файлы                                                                |
+| --- | ---------------------------------------------------- | --------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
+| 2   | ★ **MDP-7** Tauri fs commands (read/write/dialog)    | ✅ merged | [#9](https://github.com/mpegeev/mdpad-plus-plus/pull/9)   | `src-tauri/src/fs_commands.rs`, `src/lib/fs.ts`                      |
+| 3   | ★ **MDP-8** Document store (open files, dirty, tabs) | ✅ merged | [#10](https://github.com/mpegeev/mdpad-plus-plus/pull/10) | `src/lib/stores/documents.svelte.ts`                                 |
+| 4   | ★ **MDP-6** CodeMirror 6 + Markdown lang             | ✅ merged | [#11](https://github.com/mpegeev/mdpad-plus-plus/pull/11) | `src/lib/editor/Editor.svelte`, замена welcome в `EditorArea.svelte` |
+| 5   | ★ **MDP-11** Markdown block parser (pure fn, M3)     | ✅ merged | [#12](https://github.com/mpegeev/mdpad-plus-plus/pull/12) | `src/lib/markdown/blocks.ts`                                         |
 
-| #   | Задача                                                           | Worktree | Зависит от     | Блокирует              |
-| --- | ---------------------------------------------------------------- | -------- | -------------- | ---------------------- |
-| 6   | 🚨 **MDP-43** test-writer subagent + SENAR process (3pt, urgent) | —        | M2-batch merge | MDP-9, MDP-10, MDP-12+ |
+### Process-улучшение (urgent)
 
-После MDP-43 → быстрые follow-ups (параллельно):
+| #   | Задача                                                   | Статус    | PR                                                             |
+| --- | -------------------------------------------------------- | --------- | -------------------------------------------------------------- |
+| 6   | 🚨 **MDP-43** test-writer subagent + SENAR process (3pt) | ✅ merged | [#14](https://github.com/mpegeev/mdpad-plus-plus/pull/14), #16 |
 
-| #   | Задача                                                         | Worktree | Зависит от             |
-| --- | -------------------------------------------------------------- | -------- | ---------------------- |
-| 7   | ★ **MDP-10** Line numbers + wrap (1pt)                         | A        | MDP-6 + MDP-43         |
-| 8   | ★ **MDP-9** Sidebar file tree                                  | B        | MDP-7 + MDP-8 + MDP-43 |
-| 9   | ★ **MDP-39** Tighten Tauri fs ACL + Rust path validation (3pt) | C        | MDP-7                  |
-| 10  | ★ **MDP-42** Property-based tests for fs paths (3pt)           | C        | MDP-39 (следом за #9)  |
+### Follow-ups (4 параллельных worktree, смержены 2026-06-07)
+
+Реализованы параллельно в worktree; порядок мержа: **#19 → #20 → #18 → #17** (MDP-42 застекан на MDP-39; конфликт MDP-9↔MDP-10 в `EditorArea.svelte` разрешён вручную — store-проводка MDP-9 + `lineWrap` MDP-10).
+
+| #   | Задача                                                         | Статус    | PR                                                        | Зависело от            |
+| --- | -------------------------------------------------------------- | --------- | --------------------------------------------------------- | ---------------------- |
+| 7   | ★ **MDP-10** Line numbers + wrap (1pt)                         | ✅ merged | [#17](https://github.com/mpegeev/mdpad-plus-plus/pull/17) | MDP-6 + MDP-43         |
+| 8   | ★ **MDP-9** Sidebar file tree (5pt)                            | ✅ merged | [#18](https://github.com/mpegeev/mdpad-plus-plus/pull/18) | MDP-7 + MDP-8 + MDP-43 |
+| 9   | ★ **MDP-39** Tighten Tauri fs ACL + Rust path validation (3pt) | ✅ merged | [#19](https://github.com/mpegeev/mdpad-plus-plus/pull/19) | MDP-7                  |
+| 10  | ★ **MDP-42** Property-based tests for fs paths (3pt)           | ✅ merged | [#20](https://github.com/mpegeev/mdpad-plus-plus/pull/20) | MDP-39 (стек)          |
+
+> ⚠️ **Открытый интеграционный долг (MDP-9 ↔ MDP-39):** MDP-39 ограничивает FS-валидацию корнями `$APPDATA` + `$DOCUMENT`. Открытие через сайдбар (MDP-9) папок ВНЕ этих корней теперь отклоняется `validate_path_within`. Нужна отдельная задача на **runtime-scope** (расширение разрешённых корней для выбранной через диалог директории). Зафиксировано в `docs/architecture.md` §Безопасность файловых операций.
 
 ---
 
-## Фаза 2 · M3 Inline Render (последовательно — tight coupling)
+## Фаза 2 · M3 Inline Render (последовательно — tight coupling) — ⏭️ следующая
+
+Зависимости разблокированы (MDP-6/11/43 смержены). Стартовая задача — MDP-12; параллельно можно вести MDP-41.
 
 | #   | Задача                                                        | Зависит от                                 |
 | --- | ------------------------------------------------------------- | ------------------------------------------ |
@@ -112,7 +120,7 @@
 
 ## Заметки и открытые вопросы
 
-- **MDP-43 — критически перед M2 продолжением.** Внедряет процесс «test-writer субагент пишет тесты независимо от разработчика». Урок MDP-11: агент написал и парсер, и проверочный скрипт с одинаковыми ошибочными ожиданиями — оба прошли, баг проявился только при реальном vitest. Структурная защита от слепых пятен дешевле, чем повторять SENAR в 3 раунда. Должна быть готова до MDP-9/10/12+.
+- **MDP-43 — ✅ внедрено.** Процесс «test-writer субагент пишет тесты независимо от разработчика». Урок MDP-11: агент написал и парсер, и проверочный скрипт с одинаковыми ошибочными ожиданиями — оба прошли, баг проявился только при реальном vitest. Структурная защита от слепых пятен дешевле, чем повторять SENAR в 3 раунда. Действует на MDP-12+ и далее.
 
 - **MDP-27 нужно сократить.** Базовый Light/Dark уже даёт MDP-38. В MDP-27 останется только синхронизация CodeMirror темы (через `EditorView.theme()` + те же переменные). Обновить описание в Linear после мержа MDP-6.
 
@@ -125,12 +133,14 @@
 - **Уровень риска по умолчанию `standard`.** Повышать до `high` для задач с файловыми операциями (MDP-7, MDP-21, MDP-26), пользовательскими данными (MDP-9), внешними API, ACL/capabilities.
 
 - **SENAR follow-ups из M2-batch:**
-  - [MDP-39](https://linear.app/mpegeev/issue/MDP-39) (Tauri ACL `$HOME/**` сужение + Rust-side path validation — поднято в MDP-7 и MDP-38, объединено в одну задачу).
-  - [MDP-40](https://linear.app/mpegeev/issue/MDP-40) (`.expect()` в `src-tauri/src/lib.rs:17` — поднято в MDP-38). Pre-existing нарушение, можно делать в любой момент M2..M7, обязательно до MDP-33 release.
-  - [MDP-41](https://linear.app/mpegeev/issue/MDP-41) (CommonMark spec test suite для parseBlocks — поднято в MDP-11). Внешние фикстуры независимы от агентских ожиданий.
-  - [MDP-42](https://linear.app/mpegeev/issue/MDP-42) (property-based тесты для path validation — поднято в MDP-7). proptest сгенерирует 1000+ случайных входов, поймает edge cases, которые агент не придумает.
-  - [MDP-43](https://linear.app/mpegeev/issue/MDP-43) (test-writer субагент + SENAR-процесс — поднято в MDP-11). Структурное улучшение, действует на ВСЕ последующие задачи.
+  - ✅ [MDP-39](https://linear.app/mpegeev/issue/MDP-39) (Tauri ACL `$HOME/**` сужение + Rust-side path validation — поднято в MDP-7 и MDP-38, объединено в одну задачу). **Merged** ([#19](https://github.com/mpegeev/mdpad-plus-plus/pull/19)): scope сужен до `$APPDATA`+`$DOCUMENT`, `validate_path_within` + unit-тесты.
+  - ⬜ [MDP-40](https://linear.app/mpegeev/issue/MDP-40) (`.expect()` в `src-tauri/src/lib.rs:17` — поднято в MDP-38). Pre-existing нарушение, можно делать в любой момент M2..M7, обязательно до MDP-33 release. (см. Фаза 6 #31)
+  - ⬜ [MDP-41](https://linear.app/mpegeev/issue/MDP-41) (CommonMark spec test suite для parseBlocks — поднято в MDP-11). Внешние фикстуры независимы от агентских ожиданий. (см. Фаза 2 #12)
+  - ✅ [MDP-42](https://linear.app/mpegeev/issue/MDP-42) (property-based тесты для path validation — поднято в MDP-7). **Merged** ([#20](https://github.com/mpegeev/mdpad-plus-plus/pull/20)): proptest, 4 свойства × 1000 случаев, ловит edge cases.
+  - ✅ [MDP-43](https://linear.app/mpegeev/issue/MDP-43) (test-writer субагент + SENAR-процесс — поднято в MDP-11). **Merged** ([#14](https://github.com/mpegeev/mdpad-plus-plus/pull/14)). Структурное улучшение, действует на ВСЕ последующие задачи.
+
+  Остаются открытыми из follow-ups: **MDP-40**, **MDP-41** + новый **runtime-scope** долг (MDP-9 ↔ MDP-39, см. Фазу 1).
 
 - **Worktree gotchas из M2-batch:**
-  - `node_modules` нельзя junction-link'ить в worktree — Vite-резолвер блокирует `@testing-library/svelte`. Делать реальный `npm install` в каждом worktree (npm cache main-репо делает это дёшево).
-  - Или использовать `vitest.config.ts` с `server.fs.allow: ["..", "../.."]` — подход применён в MDP-6/8/11.
+  - `node_modules` через **junction** в worktree РАБОТАЕТ при наличии `vitest.config.ts` с `server.fs.allow: ["..", "../.."]` (подход MDP-6/8/11). В follow-up-батче (MDP-10/9/39/42) junction `node_modules` + общий `dist`/`CARGO_TARGET_DIR` использовались без реального `npm install` — vitest/eslint/cargo прошли. Без `server.fs.allow` Vite-резолвер блокирует `@testing-library/svelte` — тогда нужен реальный `npm install` в каждом worktree.
+  - `prettier --check .` (CI frontend job) проверяет **все** файлы, включая `.json`/`.md` — правки `capabilities/*.json` и `docs/*.md` обязаны проходить prettier (напр. короткий JSON-массив сворачивается в одну строку), иначе frontend-job падает даже у backend-only задачи.
