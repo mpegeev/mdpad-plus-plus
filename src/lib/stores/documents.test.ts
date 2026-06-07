@@ -119,7 +119,7 @@ describe("createUntitled", () => {
 
   it("fills gaps: closing Untitled-1 lets the next createUntitled re-use 1", async () => {
     // Documented choice: smallest-unused-N. See `nextUntitledNumber` in
-    // documents.svelte.ts and § Решения in tasks/MDP-8.md.
+    // documents.svelte.ts (rationale: Linear MDP-8).
     const s = await loadStore();
     const a = s.createUntitled();
     s.createUntitled(); // Untitled-2

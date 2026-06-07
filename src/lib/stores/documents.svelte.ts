@@ -14,7 +14,7 @@
  * Svelte 5 runes (`$state`, `$derived`) are only compiled by
  * `vite-plugin-svelte` in files matching `*.svelte.[jt]s`.
  * Using a plain `.ts` extension would make `$state` a runtime
- * `ReferenceError`. See `tasks/MDP-8.md` § Решения.
+ * `ReferenceError`. Rationale: Linear MDP-8.
  *
  * TODO(MDP-21): replace `localStorage` persistence with a
  * proper Tauri-backed session store via the FS commands from

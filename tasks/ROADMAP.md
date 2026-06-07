@@ -52,8 +52,9 @@
 | 8   | ★ **MDP-9** Sidebar file tree (5pt)                            | ✅ merged | [#18](https://github.com/mpegeev/mdpad-plus-plus/pull/18) | MDP-7 + MDP-8 + MDP-43 |
 | 9   | ★ **MDP-39** Tighten Tauri fs ACL + Rust path validation (3pt) | ✅ merged | [#19](https://github.com/mpegeev/mdpad-plus-plus/pull/19) | MDP-7                  |
 | 10  | ★ **MDP-42** Property-based tests for fs paths (3pt)           | ✅ merged | [#20](https://github.com/mpegeev/mdpad-plus-plus/pull/20) | MDP-39 (стек)          |
+| 11  | **MDP-44** Runtime fs scope (грант выбранных путей)            | ✅ merged | [#22](https://github.com/mpegeev/mdpad-plus-plus/pull/22) | MDP-39                 |
 
-> ⚠️ **Открытый интеграционный долг (MDP-9 ↔ MDP-39):** MDP-39 ограничивает FS-валидацию корнями `$APPDATA` + `$DOCUMENT`. Открытие через сайдбар (MDP-9) папок ВНЕ этих корней теперь отклоняется `validate_path_within`. Нужна отдельная задача на **runtime-scope** (расширение разрешённых корней для выбранной через диалог директории). Зафиксировано в `docs/architecture.md` §Безопасность файловых операций.
+> ✅ **Интеграционный долг MDP-9 ↔ MDP-39 закрыт (MDP-44, #22).** MDP-39 ограничивал FS-валидацию корнями `$APPDATA` + `$DOCUMENT`, из-за чего открытие через сайдбар папок вне этих корней отклонялось. MDP-44 добавил runtime-scope: путь, выбранный через системный диалог, добавляется в набор разрешённых корней и сохраняется между сессиями (модель безопасности MDP-39 сохранена — доступ выдаётся только при явном выборе через диалог). Зафиксировано в `docs/architecture.md` §Безопасность файловых операций.
 
 ---
 
@@ -139,7 +140,7 @@
   - ✅ [MDP-42](https://linear.app/mpegeev/issue/MDP-42) (property-based тесты для path validation — поднято в MDP-7). **Merged** ([#20](https://github.com/mpegeev/mdpad-plus-plus/pull/20)): proptest, 4 свойства × 1000 случаев, ловит edge cases.
   - ✅ [MDP-43](https://linear.app/mpegeev/issue/MDP-43) (test-writer субагент + SENAR-процесс — поднято в MDP-11). **Merged** ([#14](https://github.com/mpegeev/mdpad-plus-plus/pull/14)). Структурное улучшение, действует на ВСЕ последующие задачи.
 
-  Остаются открытыми из follow-ups: **MDP-40**, **MDP-41** + новый **runtime-scope** долг (MDP-9 ↔ MDP-39, см. Фазу 1).
+  Остаются открытыми из follow-ups: **MDP-40**, **MDP-41**. (Runtime-scope долг MDP-9 ↔ MDP-39 закрыт в **MDP-44**, см. Фазу 1.)
 
 - **Worktree gotchas из M2-batch:**
   - `node_modules` через **junction** в worktree РАБОТАЕТ при наличии `vitest.config.ts` с `server.fs.allow: ["..", "../.."]` (подход MDP-6/8/11). В follow-up-батче (MDP-10/9/39/42) junction `node_modules` + общий `dist`/`CARGO_TARGET_DIR` использовались без реального `npm install` — vitest/eslint/cargo прошли. Без `server.fs.allow` Vite-резолвер блокирует `@testing-library/svelte` — тогда нужен реальный `npm install` в каждом worktree.
