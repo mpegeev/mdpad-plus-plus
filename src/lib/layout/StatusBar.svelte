@@ -1,8 +1,17 @@
 <script lang="ts">
   import Icon from "$lib/ui/Icon.svelte";
+  import { getActive, setWrap } from "$lib/stores/documents.svelte";
 
-  // Static placeholder values. Wired to the documents store / editor state
-  // in MDP-8 / MDP-10. The wrap toggle button is non-interactive on purpose.
+  // Other segments (cursor position, encoding, EOL) remain static placeholders
+  // wired in later tasks. The wrap toggle (MDP-10) reads/writes the active
+  // document's per-document `wrap` flag in the documents store.
+  const active = $derived(getActive());
+  const wrap = $derived(active?.wrap ?? false);
+
+  function toggleWrap() {
+    if (!active) return;
+    setWrap(active.id, !active.wrap);
+  }
 </script>
 
 <footer class="statusbar" aria-label="Status bar">
@@ -20,10 +29,12 @@
       class="status-seg status-seg--btn"
       type="button"
       aria-label="Toggle line wrap"
-      disabled
+      aria-pressed={wrap}
+      disabled={!active}
+      onclick={toggleWrap}
     >
       <Icon name="wrap-text" size={11} />
-      Перенос: выкл
+      Перенос: {wrap ? "вкл" : "выкл"}
     </button>
     <span class="status-seg">UTF-8</span>
     <span class="status-seg">LF</span>

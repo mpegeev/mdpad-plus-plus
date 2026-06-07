@@ -13,6 +13,10 @@
   // welcome empty-state.
   const active = $derived(getActive());
 
+  // Line-wrap (MDP-10) is per-document state, read from the active document;
+  // falls back to `false` when no document is active.
+  const lineWrap = $derived(getActive()?.wrap ?? false);
+
   function onCreate() {
     createUntitled();
   }
@@ -24,6 +28,7 @@
       <Editor
         doc={active.buffer}
         onDocChange={(next) => updateBuffer(active.id, next)}
+        {lineWrap}
       />
     {/key}
   </section>

@@ -23,7 +23,7 @@
    */
 
   import { untrack } from "svelte";
-  import { EditorState } from "@codemirror/state";
+  import { EditorState, Compartment } from "@codemirror/state";
   import {
     EditorView,
     keymap,
@@ -40,12 +40,33 @@
     doc: string;
     onDocChange?: (next: string) => void;
     readOnly?: boolean;
+    /** Soft line wrap. Per-document (MDP-10); toggled from the status bar. */
+    lineWrap?: boolean;
   }
 
-  const { doc, onDocChange, readOnly = false }: Props = $props();
+  const {
+    doc,
+    onDocChange,
+    readOnly = false,
+    lineWrap = false,
+  }: Props = $props();
 
   let hostEl: HTMLDivElement | undefined = $state();
   let view: EditorView | undefined = $state();
+
+  // Compartment lets us reconfigure line-wrapping without recreating the
+  // EditorView (which would lose scroll, selection and history). The wrap
+  // extension is empty when off, `EditorView.lineWrapping` when on.
+  const wrapCompartment = new Compartment();
+
+  function wrapExtension(on: boolean) {
+    return on ? EditorView.lineWrapping : [];
+  }
+
+  // Last wrap value actually applied to the live view. Lets the reconfigure
+  // effect below skip a redundant dispatch right after mount (the compartment
+  // is already initialised with the current `lineWrap`).
+  let appliedWrap: boolean | undefined;
 
   // ----- Mount / unmount the EditorView -----
   // We intentionally read `doc` / `readOnly` via `untrack` so this effect runs
@@ -58,11 +79,13 @@
 
     const initialDoc = untrack(() => doc);
     const initialReadOnly = untrack(() => readOnly);
+    const initialWrap = untrack(() => lineWrap);
 
     const state = EditorState.create({
       doc: initialDoc,
       extensions: [
         lineNumbers(),
+        wrapCompartment.of(wrapExtension(initialWrap)),
         highlightActiveLine(),
         highlightActiveLineGutter(),
         history(),
@@ -81,9 +104,11 @@
 
     const created = new EditorView({ state, parent: hostEl });
     view = created;
+    appliedWrap = initialWrap;
 
     return () => {
       created.destroy();
+      appliedWrap = undefined;
     };
   });
 
@@ -97,6 +122,20 @@
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: next },
     });
+  });
+
+  // ----- Reflect `lineWrap` prop into the view via Compartment reconfigure -----
+  // Reconfiguring keeps the same EditorView instance (scroll/selection/history
+  // preserved), unlike re-running the mount effect.
+  $effect(() => {
+    const on = lineWrap;
+    if (!view) return;
+    // Skip the redundant reconfigure right after mount, and any no-op toggles.
+    if (on === appliedWrap) return;
+    view.dispatch({
+      effects: wrapCompartment.reconfigure(wrapExtension(on)),
+    });
+    appliedWrap = on;
   });
 </script>
 

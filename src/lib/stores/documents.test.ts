@@ -274,6 +274,44 @@ describe("setMode", () => {
   });
 });
 
+describe("setWrap (line wrap, MDP-10)", () => {
+  it("openFile creates a document with wrap defaulting to false", async () => {
+    const s = await loadStore();
+    const id = s.openFile("/a.md", "a");
+    expect(s.getDocuments().find((d) => d.id === id)?.wrap).toBe(false);
+  });
+
+  it("createUntitled creates a document with wrap defaulting to false", async () => {
+    const s = await loadStore();
+    const id = s.createUntitled();
+    expect(s.getDocuments().find((d) => d.id === id)?.wrap).toBe(false);
+  });
+
+  it("setWrap toggles the per-document wrap flag", async () => {
+    const s = await loadStore();
+    const id = s.openFile("/a.md", "a");
+    s.setWrap(id, true);
+    expect(s.getDocuments().find((d) => d.id === id)?.wrap).toBe(true);
+    s.setWrap(id, false);
+    expect(s.getDocuments().find((d) => d.id === id)?.wrap).toBe(false);
+  });
+
+  it("setWrap is per-document — does not affect other docs", async () => {
+    const s = await loadStore();
+    const a = s.openFile("/a.md", "a");
+    const b = s.openFile("/b.md", "b");
+    s.setWrap(a, true);
+    expect(s.getDocuments().find((d) => d.id === a)?.wrap).toBe(true);
+    expect(s.getDocuments().find((d) => d.id === b)?.wrap).toBe(false);
+  });
+
+  it("is a no-op for an unknown id", async () => {
+    const s = await loadStore();
+    s.setWrap("missing", true);
+    expect(s.getDocuments()).toHaveLength(0);
+  });
+});
+
 describe("localStorage persistence", () => {
   it("round-trips state across a module reload", async () => {
     const s1 = await loadStore();
@@ -295,6 +333,42 @@ describe("localStorage persistence", () => {
     expect(docs[1].mode).toBe("raw");
     expect(s2.getActiveId()).toBe(untitledId);
     expect(s2.isDirty(untitledId)).toBe(true);
+  });
+
+  it("round-trips the wrap flag across a module reload", async () => {
+    const s1 = await loadStore();
+    const id = s1.openFile("/wrap.md", "x");
+    s1.setWrap(id, true);
+    vi.advanceTimersByTime(150);
+
+    const s2 = await loadStore();
+    const doc = s2.getDocuments().find((d) => d.path === "/wrap.md");
+    expect(doc?.wrap).toBe(true);
+  });
+
+  it("loads legacy records without `wrap`, defaulting it to false", async () => {
+    // Pre-MDP-10 persisted shape: documents have no `wrap` field at all.
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        v: 1,
+        documents: [
+          {
+            id: "legacy-id",
+            path: "/legacy.md",
+            name: "legacy.md",
+            baseline: "x",
+            buffer: "x",
+            mode: "rendered",
+          },
+        ],
+        activeId: "legacy-id",
+      }),
+    );
+    const s = await loadStore();
+    const doc = s.getDocuments().find((d) => d.id === "legacy-id");
+    expect(doc).toBeDefined();
+    expect(doc?.wrap).toBe(false);
   });
 
   it("falls back to empty state when storage contains corrupted JSON", async () => {

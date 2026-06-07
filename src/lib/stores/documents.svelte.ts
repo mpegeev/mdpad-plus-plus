@@ -42,6 +42,8 @@ export interface MDDocument {
   buffer: string;
   /** Editor mode (placeholder for MDP-15; defaults to `"rendered"`). */
   mode: DocumentMode;
+  /** Line-wrap toggle (MDP-10). Per-document; defaults to `false`. */
+  wrap: boolean;
 }
 
 interface PersistedShape {
@@ -100,7 +102,14 @@ function loadFromStorage(): void {
     return;
   }
   if (!isPersistedShape(parsed)) return;
-  documents.splice(0, documents.length, ...parsed.documents);
+  // Normalize: older persisted records (pre-MDP-10) have no `wrap` field.
+  // `isMDDocument` accepts their absence; here we materialize the default so
+  // the in-memory shape always satisfies `MDDocument`.
+  const normalized = parsed.documents.map((d) => ({
+    ...d,
+    wrap: d.wrap === true,
+  }));
+  documents.splice(0, documents.length, ...normalized);
   activeId = parsed.activeId;
   // Ensure the persisted activeId still references a present document.
   if (activeId !== null && !documents.some((d) => d.id === activeId)) {
@@ -126,7 +135,10 @@ function isMDDocument(value: unknown): value is MDDocument {
     typeof d.name === "string" &&
     typeof d.baseline === "string" &&
     typeof d.buffer === "string" &&
-    (d.mode === "rendered" || d.mode === "mixed" || d.mode === "raw")
+    (d.mode === "rendered" || d.mode === "mixed" || d.mode === "raw") &&
+    // Backward compat (MDP-10): `wrap` may be absent in pre-MDP-10 records;
+    // absence is valid (treated as false). When present it must be boolean.
+    (d.wrap === undefined || typeof d.wrap === "boolean")
   );
 }
 
@@ -236,6 +248,7 @@ export function openFile(path: string, contents: string): DocumentId {
     baseline: contents,
     buffer: contents,
     mode: "rendered",
+    wrap: false,
   };
   documents.push(doc);
   activeId = doc.id;
@@ -252,6 +265,7 @@ export function createUntitled(): DocumentId {
     baseline: "",
     buffer: "",
     mode: "rendered",
+    wrap: false,
   };
   documents.push(doc);
   activeId = doc.id;
@@ -303,6 +317,13 @@ export function setMode(id: DocumentId, mode: DocumentMode): void {
   const doc = documents.find((d) => d.id === id);
   if (!doc) return;
   doc.mode = mode;
+  schedulePersist();
+}
+
+export function setWrap(id: DocumentId, wrap: boolean): void {
+  const doc = documents.find((d) => d.id === id);
+  if (!doc) return;
+  doc.wrap = wrap;
   schedulePersist();
 }
 
