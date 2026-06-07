@@ -21,12 +21,7 @@
     "fs:allow-mkdir",
     {
       "identifier": "fs:scope",
-      "allow": [
-        { "path": "$APPDATA/**" },
-        { "path": "$APPLOCALDATA/**" },
-        { "path": "$DOCUMENT/**" },
-        { "path": "$HOME/**" }
-      ]
+      "allow": [{ "path": "$APPDATA/**" }, { "path": "$DOCUMENT/**" }]
     }
   ]
 }
