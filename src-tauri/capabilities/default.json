@@ -24,8 +24,7 @@
       "allow": [
         { "path": "$APPDATA/**" },
         { "path": "$APPLOCALDATA/**" },
-        { "path": "$DOCUMENT/**" },
-        { "path": "$HOME/**" }
+        { "path": "$DOCUMENT/**" }
       ]
     }
   ]
