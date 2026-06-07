@@ -601,3 +601,11 @@ mod tests {
         assert!(err.contains("no allowed roots"), "got: {err}");
     }
 }
+
+// Property-based тесты (MDP-42). Дочерний модуль `fs_commands`, поэтому имеет
+// доступ к приватным хелперам (read_file_in/list_dir_in/write_file_in).
+// `#[path]` нужен, т.к. файл лежит рядом (src/fs_commands_proptest.rs), а не в
+// подкаталоге src/fs_commands/ (правило путей модулей Rust).
+#[cfg(test)]
+#[path = "fs_commands_proptest.rs"]
+mod proptest_tests;
