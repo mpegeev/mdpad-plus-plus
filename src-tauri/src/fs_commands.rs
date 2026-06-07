@@ -102,6 +102,14 @@ pub fn validate_path_within(path: &str, allowed_roots: &[PathBuf]) -> Result<Pat
 fn canonicalize_existing_or_ancestor(raw: &Path) -> Result<PathBuf, String> {
     match raw.canonicalize() {
         Ok(c) => Ok(c),
+        // Только "не найдено" => это кейс write_file (создаём новый файл): строим
+        // путь от существующего предка. Любая другая IO-ошибка (permission denied,
+        // path too long, symlink-loop и т.п.) — fail-closed, не маскируем под
+        // "не существует".
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(format!(
+            "validate_path: {}: canonicalize: {e}",
+            raw.display()
+        )),
         Err(_) => {
             // Поднимаемся вверх до первого существующего предка.
             let mut ancestor = raw.parent();
@@ -548,6 +556,46 @@ mod tests {
 
         let r = read_file_in(&path, &roots);
         assert!(r.is_err(), "read outside scope must fail");
+
+        let _ = fs::remove_dir_all(&allowed);
+        let _ = fs::remove_dir_all(&outside);
+    }
+
+    /// AC (traversal): `..`, выводящий НАРУЖУ из разрешённого корня, отклоняется
+    /// компонентной проверкой ДО syscall — даже если файл-цель реально существует.
+    #[test]
+    fn parent_dir_escaping_root_rejected_before_syscall() {
+        let allowed = tmp_root("escape_allowed");
+        fs::create_dir_all(&allowed).expect("mkdir allowed");
+        let roots = [allowed.clone()];
+
+        // Реальный секрет вне корня, рядом с allowed (общий родитель = temp_dir).
+        let outside = tmp_root("escape_outside");
+        fs::create_dir_all(&outside).expect("mkdir outside");
+        let mut secret = outside.clone();
+        secret.push("passwd");
+        fs::write(&secret, "ROOT SECRET").expect("seed secret");
+
+        // Путь вида <allowed>/../escape_outside_*/passwd — выходит за корень.
+        let outside_name = outside
+            .file_name()
+            .expect("outside file_name")
+            .to_string_lossy()
+            .into_owned();
+        let mut traversal = allowed.clone();
+        traversal.push("..");
+        traversal.push(&outside_name);
+        traversal.push("passwd");
+        let path = traversal.to_string_lossy().into_owned();
+
+        let v_err = validate_path_within(&path, &roots).expect_err("escaping .. must be rejected");
+        assert!(v_err.contains("'..'"), "got: {v_err}");
+
+        let r = read_file_in(&path, &roots);
+        assert!(r.is_err(), "read via escaping .. must fail, got Ok");
+        if let Err(e) = r {
+            assert!(!e.contains("ROOT SECRET"), "secret content leaked: {e}");
+        }
 
         let _ = fs::remove_dir_all(&allowed);
         let _ = fs::remove_dir_all(&outside);

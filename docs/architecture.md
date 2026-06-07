@@ -94,10 +94,9 @@ Toggle через `Ctrl+E` и кнопку в статус-баре.
 Доступ к ФС ограничивается на **двух** независимых уровнях:
 
 1. **ACL Tauri** (`src-tauri/capabilities/default.json`, блок `fs:scope`).
-   Разрешённые корни:
-   - `$APPDATA/**` и `$APPLOCALDATA/**` — наш собственный каталог
-     (настройки, recovery-snapshots, persisted state). `$APPLOCALDATA` —
-     часть app-data на Windows.
+   Разрешённые корни (совпадают с корнями Rust-side валидации, см. ниже):
+   - `$APPDATA/**` — наш собственный каталог (настройки, recovery-snapshots,
+     persisted state).
    - `$DOCUMENT/**` — пользовательские заметки по умолчанию.
 
    `$HOME/**` **сознательно убран**: он давал бы доступ почти ко всему
