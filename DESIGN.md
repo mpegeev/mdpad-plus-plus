@@ -82,8 +82,13 @@ mdpad++ — это **dev-tool для письма**. Визуальный язы
 
   /* Syntax (raw mode) */
   --syntax-heading: #5a4f9a;
+  --syntax-emphasis: #191919; /* italic-emphasis */
+  --syntax-strong: #000000; /* bold-emphasis */
   --syntax-code: #a85a3e;
   --syntax-link: #3d6b8a;
+  --syntax-quote: #6b6960;
+  --syntax-list: #6b6960; /* bullets, numbers */
+  --syntax-hr: #ddd9c8; /* horizontal rules */
 }
 ```
 

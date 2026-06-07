@@ -2,6 +2,8 @@
 // поиск, watcher) добавляются в отдельных модулях по мере реализации
 // задач MDP-5..MDP-7.
 
+mod fs_commands;
+
 #[tauri::command]
 fn ping() -> &'static str {
     "pong"
@@ -12,7 +14,15 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![ping])
+        .invoke_handler(tauri::generate_handler![
+            ping,
+            fs_commands::read_file,
+            fs_commands::write_file,
+            fs_commands::list_dir,
+            fs_commands::pick_open_file,
+            fs_commands::pick_save_file,
+            fs_commands::pick_folder,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
