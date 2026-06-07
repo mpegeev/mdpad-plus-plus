@@ -762,6 +762,43 @@ mod tests {
         let _ = fs::remove_dir_all(&other);
     }
 
+    /// MDP-44 (least-privilege): грант одного ФАЙЛА (семантика pick_open_file)
+    /// разрешает чтение именно его, но НЕ соседних файлов в той же директории.
+    #[test]
+    fn granting_single_file_does_not_expose_siblings() {
+        let base = tmp_root("lp_base");
+        let dir = tmp_root("lp_dir");
+        let grants_file = base.join("granted_roots.json");
+
+        let mut f1 = dir.clone();
+        f1.push("opened.md");
+        fs::write(&f1, "OPENED").expect("seed f1");
+        let mut f2 = dir.clone();
+        f2.push("sibling.md");
+        fs::write(&f2, "SIBLING").expect("seed f2");
+        let p1 = f1.to_string_lossy().into_owned();
+        let p2 = f2.to_string_lossy().into_owned();
+
+        // Грантим только файл f1 (как pick_open_file).
+        granted_roots::grant_root(&grants_file, &f1).expect("grant file");
+        let mut roots = vec![base.clone()];
+        roots.extend(granted_roots::load_granted_roots(&grants_file));
+
+        // f1 читается; сосед f2 НЕ доступен (грант был на файл, не на каталог).
+        assert_eq!(read_file_in(&p1, &roots).expect("read opened"), "OPENED");
+        let r = read_file_in(&p2, &roots);
+        assert!(
+            r.is_err(),
+            "sibling must NOT be exposed by single-file grant"
+        );
+        if let Err(e) = r {
+            assert!(!e.contains("SIBLING"), "sibling content leaked: {e}");
+        }
+
+        let _ = fs::remove_dir_all(&base);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
     /// Пустой список разрешённых корней -> Err (пустая конфигурация падает).
     #[test]
     fn empty_allowed_roots_rejected() {
