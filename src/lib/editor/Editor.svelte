@@ -35,6 +35,7 @@
   import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
   import { searchKeymap } from "@codemirror/search";
   import { editorTheme, editorSyntaxHighlight } from "./theme";
+  import { inlineRender as inlineRenderExt } from "./inlineRender";
 
   interface Props {
     doc: string;
@@ -42,6 +43,13 @@
     readOnly?: boolean;
     /** Soft line wrap. Per-document (MDP-10); toggled from the status bar. */
     lineWrap?: boolean;
+    /**
+     * Inline block rendering (MDP-12). When `true`, every top-level Markdown
+     * block is replaced by its rendered HTML widget — the document opens
+     * "as Typora". Read once at mount (like `readOnly`); switching it at
+     * runtime is the mode-toggle concern of MDP-15.
+     */
+    inlineRender?: boolean;
   }
 
   const {
@@ -49,6 +57,7 @@
     onDocChange,
     readOnly = false,
     lineWrap = false,
+    inlineRender = true,
   }: Props = $props();
 
   let hostEl: HTMLDivElement | undefined = $state();
@@ -72,14 +81,16 @@
   // We intentionally read `doc` / `readOnly` via `untrack` so this effect runs
   // exactly once per host element. Re-creating the view on every prop change
   // would lose scroll position, selection and history. External `doc` updates
-  // are reflected by the second effect below; reactive `readOnly` will arrive
-  // with the raw/rendered toggle in MDP-12 (likely via a Compartment).
+  // are reflected by the second effect below. `readOnly` / `inlineRender` are
+  // read once at mount; making them reactive (a Compartment) belongs to the
+  // mode toggle (MDP-15), not here.
   $effect(() => {
     if (!hostEl) return;
 
     const initialDoc = untrack(() => doc);
     const initialReadOnly = untrack(() => readOnly);
     const initialWrap = untrack(() => lineWrap);
+    const initialInlineRender = untrack(() => inlineRender);
 
     const state = EditorState.create({
       doc: initialDoc,
@@ -90,6 +101,7 @@
         highlightActiveLineGutter(),
         history(),
         markdown(),
+        ...(initialInlineRender ? [inlineRenderExt()] : []),
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         editorTheme,
         editorSyntaxHighlight,

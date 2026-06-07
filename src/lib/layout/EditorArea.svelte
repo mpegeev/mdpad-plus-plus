@@ -15,7 +15,13 @@
 
   // Line-wrap (MDP-10) is per-document state, read from the active document;
   // falls back to `false` when no document is active.
-  const lineWrap = $derived(getActive()?.wrap ?? false);
+  const lineWrap = $derived(active?.wrap ?? false);
+
+  // Inline block rendering (MDP-12). The per-document `mode` drives it: only
+  // `raw` shows the plain Markdown source; `rendered`/`mixed` open rendered.
+  // The mode toggle UI is MDP-15; here we just honour the existing field
+  // (defaults to `rendered`, so documents open rendered).
+  const renderBlocks = $derived(active?.mode !== "raw");
 
   function onCreate() {
     createUntitled();
@@ -29,6 +35,7 @@
         doc={active.buffer}
         onDocChange={(next) => updateBuffer(active.id, next)}
         {lineWrap}
+        inlineRender={renderBlocks}
       />
     {/key}
   </section>
