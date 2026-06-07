@@ -56,6 +56,37 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task
 Получи структурированный отчёт. **Не интерпретируй его, не сглаживай,
 не пересказывай своими словами.** Покажи отчёт супервайзеру дословно.
 
+## Шаг 4.5. Verify-by-independent-tests (для детерминированных задач)
+
+Прочитай `tasks/$ARGUMENTS.md` и проверь поле "Тип задачи" (из вопроса 6
+в `/new-task`).
+
+- Если задача **недетерминированная** — пропусти этот шаг.
+- Если **детерминированная** и `test-writer` уже запускался в `/new-task` —
+  убедись, что его тесты есть в worktree (`*.independent.test.ts` рядом
+  с реализацией). Прогони их через
+  `npm run test` или `cargo test` — все должны пройти. Если что-то падает —
+  это **финдинг**, передай супервайзеру.
+- Если **детерминированная** и `test-writer` НЕ запускался в `/new-task` —
+  запусти сейчас на финальном коммите:
+
+  > Use the test-writer subagent to write tests for `$ARGUMENTS` based on
+  > the acceptance criteria. Do NOT read the implementation file
+  > `<path-to-impl>`. Place tests in `<path-to-impl-dir>/<name>.independent.test.ts`.
+
+  Дождись результата. Прогони `npm run test` или `cargo test`. Если какие-то
+  test-writer'ские тесты падают — это сигнал расхождения между AC и
+  реализацией. Передай вывод супервайзеру.
+
+В Свидетельства верификации добавь блок:
+
+```
+**test-writer (independent verification).** N тестов, прогоняются через
+<run command>: <X/Y passed>. Покрытие: AC <K из L bullets>, negative <N>,
+edge cases <N>. Если все pass — разработчик не подогнал реализацию под
+свои тесты (структурная защита).
+```
+
 ## Шаг 5. Решение
 
 - Если ревьюер вернул `VERDICT: PASS` и все критерии приёмки имеют
