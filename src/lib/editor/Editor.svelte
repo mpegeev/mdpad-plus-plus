@@ -63,6 +63,11 @@
     return on ? EditorView.lineWrapping : [];
   }
 
+  // Last wrap value actually applied to the live view. Lets the reconfigure
+  // effect below skip a redundant dispatch right after mount (the compartment
+  // is already initialised with the current `lineWrap`).
+  let appliedWrap: boolean | undefined;
+
   // ----- Mount / unmount the EditorView -----
   // We intentionally read `doc` / `readOnly` via `untrack` so this effect runs
   // exactly once per host element. Re-creating the view on every prop change
@@ -99,9 +104,11 @@
 
     const created = new EditorView({ state, parent: hostEl });
     view = created;
+    appliedWrap = initialWrap;
 
     return () => {
       created.destroy();
+      appliedWrap = undefined;
     };
   });
 
@@ -123,9 +130,12 @@
   $effect(() => {
     const on = lineWrap;
     if (!view) return;
+    // Skip the redundant reconfigure right after mount, and any no-op toggles.
+    if (on === appliedWrap) return;
     view.dispatch({
       effects: wrapCompartment.reconfigure(wrapExtension(on)),
     });
+    appliedWrap = on;
   });
 </script>
 
