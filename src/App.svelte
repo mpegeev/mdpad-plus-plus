@@ -13,6 +13,17 @@
   let sidebarWidth = $state(SIDEBAR_DEFAULT);
   let sidebarCollapsed = $state(false);
 
+  // Apply default data-theme on <html> at startup. data-density and
+  // data-accent are intentionally left unset (= defaults from tokens.css /
+  // themes/*.css). UI to change these lands in MDP-26..28. Override from
+  // devtools: document.documentElement.dataset.theme = "dark".
+  $effect(() => {
+    const root = document.documentElement;
+    if (!root.dataset.theme) {
+      root.dataset.theme = "light";
+    }
+  });
+
   function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
   }

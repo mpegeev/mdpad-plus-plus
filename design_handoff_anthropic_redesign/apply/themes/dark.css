@@ -1,4 +1,5 @@
 /* Dark theme — Anthropic-style WARM dark (not an inversion).
+   Replaces the cold VS Code dark from the original DESIGN.md.
    Variable names unchanged — drop-in compatible. */
 
 :root[data-theme="dark"] {
@@ -26,7 +27,6 @@
   /* Accent — ink-light (bright warm). Presets via [data-accent]. */
   --accent: #ebe9e0;
   --accent-hover: #ffffff;
-  --accent-fg: #1c1b18;
   --accent-muted: rgba(235, 233, 224, 0.1);
 
   /* Semantic */
@@ -53,18 +53,15 @@
 :root[data-theme="dark"][data-accent="coral"] {
   --accent: #d97757;
   --accent-hover: #f08866;
-  --accent-fg: #1c1b18;
   --accent-muted: rgba(217, 119, 87, 0.16);
 }
 :root[data-theme="dark"][data-accent="slate"] {
   --accent: #7aa6c4;
   --accent-hover: #92b8d2;
-  --accent-fg: #1c1b18;
   --accent-muted: rgba(122, 166, 196, 0.16);
 }
 :root[data-theme="dark"][data-accent="sage"] {
   --accent: #8fb88a;
   --accent-hover: #a4c79f;
-  --accent-fg: #1c1b18;
   --accent-muted: rgba(143, 184, 138, 0.16);
 }
