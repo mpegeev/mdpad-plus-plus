@@ -2,11 +2,17 @@
   import Icon from "$lib/ui/Icon.svelte";
   import Button from "$lib/ui/Button.svelte";
   import Editor from "$lib/editor/Editor.svelte";
+  import { getActive } from "$lib/stores/documents.svelte";
 
   // Until the document store from MDP-8 lands, we keep a local sample doc.
   // The "Создать файл" button simulates "open" by populating it. This page
   // exists to show the Editor component works end-to-end inside the layout.
   let sampleDoc = $state("");
+
+  // Line-wrap (MDP-10) is per-document state. Until full content wiring lands
+  // (MDP-9), we read only the wrap flag of the active document; falls back to
+  // `false` when no document is active.
+  const lineWrap = $derived(getActive()?.wrap ?? false);
 
   function openSample() {
     sampleDoc =
@@ -22,7 +28,11 @@
 
 {#if sampleDoc.length > 0}
   <section class="editor" aria-label="Editor">
-    <Editor doc={sampleDoc} onDocChange={(next) => (sampleDoc = next)} />
+    <Editor
+      doc={sampleDoc}
+      onDocChange={(next) => (sampleDoc = next)}
+      {lineWrap}
+    />
   </section>
 {:else}
   <section class="editor editor--empty" aria-label="Editor">

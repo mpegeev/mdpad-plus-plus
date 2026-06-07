@@ -95,6 +95,60 @@ describe("Editor.svelte", () => {
     expect(view.state.readOnly).toBe(true);
   });
 
+  it("всегда отображает gutter с номерами строк (.cm-lineNumbers)", async () => {
+    const { container } = render(Editor, {
+      props: { doc: "line one\nline two\nline three" },
+    });
+    await tick();
+    getView(container); // sanity: view exists
+    const lineNumbers = container.querySelector(".cm-lineNumbers");
+    expect(lineNumbers).not.toBeNull();
+    // The gutter elements carry the actual line numbers.
+    const nums = container.querySelectorAll(
+      ".cm-lineNumbers .cm-gutterElement",
+    );
+    expect(nums.length).toBeGreaterThan(0);
+  });
+
+  it("lineWrap=false (по умолчанию) — без класса .cm-lineWrapping", async () => {
+    const { container } = render(Editor, { props: { doc: "abc" } });
+    await tick();
+    const view = getView(container);
+    expect(view.dom.querySelector(".cm-lineWrapping")).toBeNull();
+  });
+
+  it("lineWrap=true включает мягкий перенос (.cm-lineWrapping)", async () => {
+    const { container } = render(Editor, {
+      props: { doc: "abc", lineWrap: true },
+    });
+    await tick();
+    const view = getView(container);
+    // CM6 adds the `cm-lineWrapping` class to `.cm-content` when
+    // EditorView.lineWrapping is active.
+    expect(view.dom.querySelector(".cm-lineWrapping")).not.toBeNull();
+  });
+
+  it("переключение lineWrap НЕ пересоздаёт EditorView (тот же инстанс)", async () => {
+    const { container, rerender } = render(Editor, {
+      props: { doc: "abc", lineWrap: false },
+    });
+    await tick();
+    const before = getView(container);
+    expect(before.dom.querySelector(".cm-lineWrapping")).toBeNull();
+
+    await rerender({ doc: "abc", lineWrap: true });
+    await tick();
+    const after = getView(container);
+    // Same view instance — reconfigure via Compartment, not a remount.
+    expect(after).toBe(before);
+    expect(after.dom.querySelector(".cm-lineWrapping")).not.toBeNull();
+
+    await rerender({ doc: "abc", lineWrap: false });
+    await tick();
+    expect(getView(container)).toBe(before);
+    expect(before.dom.querySelector(".cm-lineWrapping")).toBeNull();
+  });
+
   it("unmount вызывает EditorView.destroy() — DOM отсоединяется", async () => {
     const destroySpy = vi.spyOn(EditorView.prototype, "destroy");
     const { container, unmount } = render(Editor, {
