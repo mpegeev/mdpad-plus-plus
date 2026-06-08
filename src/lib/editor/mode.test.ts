@@ -1,50 +1,82 @@
+/**
+ * Независимые тесты для MDP-15: cycleMode.
+ * Написаны агентом test-writer по контракту, критериям приёмки и сигнатурам.
+ * Реализация (mode.ts) не читалась намеренно — структурная защита SENAR.
+ *
+ * Покрывает:
+ *   - каждый из трёх переходов: rendered→mixed, mixed→raw, raw→rendered
+ *   - полный цикл из трёх применений возвращает исходное значение
+ *   - тотальность функции (определена на всех трёх значениях типа)
+ */
+
 import { describe, it, expect } from "vitest";
 import { cycleMode } from "./mode";
 import type { DocumentMode } from "$lib/stores/documents.svelte";
 
-/**
- * MDP-15 — тесты чистого хелпера `cycleMode`.
- *
- * SENAR-правило 4: для детерминированной функции (известный заранее ответ)
- * тесты пишутся от сигнатуры + критериев приёмки, без доступа к реализации,
- * чтобы их нельзя было подогнать под код. Идеально это делает субагент
- * test-writer; в данной среде субагенты недоступны, поэтому тесты написаны
- * исключительно по контракту из задачи:
- *
- *   cycleMode(mode: DocumentMode): DocumentMode
- *   циклический порядок: rendered → mixed → raw → rendered (AC#2).
- *
- * Это та же спецификация, что получил бы test-writer.
- */
-
 describe("cycleMode", () => {
-  it("rendered → mixed", () => {
-    expect(cycleMode("rendered")).toBe("mixed");
+  it("AC: rendered переходит в mixed", () => {
+    expect(cycleMode("rendered")).toBe("mixed"); // AC#1
   });
 
-  it("mixed → raw", () => {
-    expect(cycleMode("mixed")).toBe("raw");
+  it("AC: mixed переходит в raw", () => {
+    expect(cycleMode("mixed")).toBe("raw"); // AC#2
   });
 
-  it("raw → rendered (замыкает цикл)", () => {
-    expect(cycleMode("raw")).toBe("rendered");
+  it("AC: raw переходит в rendered", () => {
+    expect(cycleMode("raw")).toBe("rendered"); // AC#3
   });
 
-  it("три применения возвращают исходный режим (полный цикл)", () => {
-    const modes: DocumentMode[] = ["rendered", "mixed", "raw"];
-    for (const start of modes) {
-      expect(cycleMode(cycleMode(cycleMode(start)))).toBe(start);
-    }
+  it("AC: три применения возвращают исходное — старт rendered", () => {
+    const start: DocumentMode = "rendered";
+    expect(cycleMode(cycleMode(cycleMode(start)))).toBe(start);
   });
 
-  it("каждый вход даёт ровно один уникальный выход (детерминизм и тотальность)", () => {
-    const modes: DocumentMode[] = ["rendered", "mixed", "raw"];
-    const outputs = modes.map((m) => cycleMode(m));
-    // Все три выхода различны → перестановка, полный цикл без неподвижных точек.
-    expect(new Set(outputs).size).toBe(3);
-    // Ни один режим не отображается сам в себя.
-    for (const m of modes) {
-      expect(cycleMode(m)).not.toBe(m);
-    }
+  it("AC: три применения возвращают исходное — старт mixed", () => {
+    const start: DocumentMode = "mixed";
+    expect(cycleMode(cycleMode(cycleMode(start)))).toBe(start);
+  });
+
+  it("AC: три применения возвращают исходное — старт raw", () => {
+    const start: DocumentMode = "raw";
+    expect(cycleMode(cycleMode(cycleMode(start)))).toBe(start);
+  });
+
+  it("AC: тотальность — cycleMode возвращает DocumentMode для rendered", () => {
+    const result = cycleMode("rendered");
+    expect(["rendered", "mixed", "raw"]).toContain(result);
+  });
+
+  it("AC: тотальность — cycleMode возвращает DocumentMode для mixed", () => {
+    const result = cycleMode("mixed");
+    expect(["rendered", "mixed", "raw"]).toContain(result);
+  });
+
+  it("AC: тотальность — cycleMode возвращает DocumentMode для raw", () => {
+    const result = cycleMode("raw");
+    expect(["rendered", "mixed", "raw"]).toContain(result);
+  });
+
+  it("edge case: rendered не переходит сразу в raw (минуя mixed)", () => {
+    expect(cycleMode("rendered")).not.toBe("raw");
+  });
+
+  it("edge case: mixed не переходит обратно в rendered (регресс)", () => {
+    expect(cycleMode("mixed")).not.toBe("rendered");
+  });
+
+  it("edge case: raw не переходит в mixed (минуя rendered)", () => {
+    expect(cycleMode("raw")).not.toBe("mixed");
+  });
+
+  it("invariant: rendered → mixed → raw (два шага)", () => {
+    expect(cycleMode(cycleMode("rendered"))).toBe("raw");
+  });
+
+  it("invariant: mixed → raw → rendered (два шага)", () => {
+    expect(cycleMode(cycleMode("mixed"))).toBe("rendered");
+  });
+
+  it("invariant: raw → rendered → mixed (два шага)", () => {
+    expect(cycleMode(cycleMode("raw"))).toBe("mixed");
   });
 });
