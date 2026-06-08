@@ -105,6 +105,37 @@ export const icons = {
     ["path", { d: "m16 18 6-6-6-6" }],
     ["path", { d: "m8 6-6 6 6 6" }],
   ],
+  // Formatting toolbar icons (MDP-16).
+  bold: [
+    [
+      "path",
+      {
+        d: "M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8",
+      },
+    ],
+  ],
+  italic: [
+    ["line", { x1: "19", x2: "10", y1: "4", y2: "4" }],
+    ["line", { x1: "14", x2: "5", y1: "20", y2: "20" }],
+    ["line", { x1: "15", x2: "9", y1: "4", y2: "20" }],
+  ],
+  underline: [
+    ["path", { d: "M6 4v6a6 6 0 0 0 12 0V4" }],
+    ["line", { x1: "4", x2: "20", y1: "20", y2: "20" }],
+  ],
+  // `code-xml` (Lucide) — distinct from `code` (raw-mode toggle); used for the
+  // inline-code formatting action.
+  "code-xml": [
+    ["path", { d: "m18 16 4-4-4-4" }],
+    ["path", { d: "m6 8-4 4 4 4" }],
+    ["path", { d: "m14.5 4-5 16" }],
+  ],
+  // `square-code` (Lucide) — code-fence (block) action.
+  "square-code": [
+    ["path", { d: "M10 9.5 8 12l2 2.5" }],
+    ["path", { d: "m14 9.5 2 2.5-2 2.5" }],
+    ["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2" }],
+  ],
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof icons;

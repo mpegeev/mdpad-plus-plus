@@ -69,6 +69,28 @@
      * fires when the editor is focused and composes with CM6 key handling.
      */
     onCycleMode?: () => void;
+    /**
+     * Invoked once the EditorView is created (and again with `null` on
+     * teardown). Lets a parent overlay (e.g. the MDP-16 floating toolbar) read
+     * selection geometry via `view.coordsAtPos` without making the view a
+     * public field. Kept as a callback rather than `bindable` so the parent
+     * gets an explicit teardown signal.
+     */
+    onViewReady?: (view: EditorView | null) => void;
+    /**
+     * Invoked whenever the selection changes (MDP-16). `empty` is true when the
+     * selection is collapsed (a bare caret) — the floating toolbar uses this to
+     * drive its show/hide state machine. Fired from the same updateListener as
+     * `onDocChange` so it composes with CM6 transactions.
+     */
+    onSelectionChange?: (empty: boolean) => void;
+    /**
+     * Invoked when the editor's scroller scrolls or the editor loses focus
+     * (MDP-16). The floating toolbar hides on either (AC#5).
+     */
+    onScroll?: () => void;
+    /** Invoked when the editor content loses focus (MDP-16, AC#5). */
+    onBlur?: () => void;
   }
 
   const {
@@ -78,6 +100,10 @@
     lineWrap = false,
     mode = "rendered",
     onCycleMode,
+    onViewReady,
+    onSelectionChange,
+    onScroll,
+    onBlur,
   }: Props = $props();
 
   let hostEl: HTMLDivElement | undefined = $state();
@@ -183,9 +209,28 @@
         editorSyntaxHighlight,
         EditorState.readOnly.of(initialReadOnly),
         EditorView.updateListener.of((update) => {
-          if (!update.docChanged) return;
           // Don't crash if parent didn't wire a handler — common in tests.
-          onDocChange?.(update.state.doc.toString());
+          if (update.docChanged) {
+            onDocChange?.(update.state.doc.toString());
+          }
+          // MDP-16: report selection changes (incl. those caused by edits) so
+          // the floating toolbar can debounce show/hide. `selectionSet` covers
+          // explicit selection moves; doc edits also shift the selection.
+          if (update.selectionSet || update.docChanged) {
+            onSelectionChange?.(update.state.selection.main.empty);
+          }
+        }),
+        // MDP-16: scroll/blur hide the floating toolbar (AC#5). Handlers return
+        // false so they never swallow the native event.
+        EditorView.domEventHandlers({
+          scroll() {
+            onScroll?.();
+            return false;
+          },
+          blur() {
+            onBlur?.();
+            return false;
+          },
         }),
       ],
     });
@@ -197,8 +242,13 @@
     // If we open straight into `mixed`, the block under the caret must be raw
     // from the first frame (the extender only fires on later transactions).
     syncRawBlockForMode(created, initialMode);
+    // Hand the view to a parent overlay (MDP-16) after it exists. Read the prop
+    // via `untrack` so this synchronous call does not make the mount effect
+    // reactive to `onViewReady` (the effect must run exactly once per mount).
+    untrack(() => onViewReady)?.(created);
 
     return () => {
+      untrack(() => onViewReady)?.(null);
       created.destroy();
       appliedWrap = undefined;
       appliedMode = undefined;
