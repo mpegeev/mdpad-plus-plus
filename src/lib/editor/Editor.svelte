@@ -44,6 +44,7 @@
     rawBlockField,
     findBlockAt,
   } from "./inlineRender";
+  import { formatKeymap } from "./format";
   import type { DocumentMode } from "$lib/stores/documents.svelte";
 
   interface Props {
@@ -178,6 +179,9 @@
         // Ctrl+E (mode cycle) goes first so it has priority over the default
         // binding (cursorLineEnd) — `cycleModeCommand` always returns true.
         keymap.of([{ key: "Ctrl-e", run: cycleModeCommand }]),
+        // Хоткеи форматирования (MDP-17): Ctrl+B/I/U/Ctrl+`. Идут перед
+        // defaultKeymap, чтобы перехватывать сочетания до дефолтных привязок.
+        formatKeymap,
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         editorTheme,
         editorSyntaxHighlight,
