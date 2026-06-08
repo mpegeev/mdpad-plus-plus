@@ -144,10 +144,6 @@
     0 1px 2px rgba(25, 25, 25, 0.04), 0 8px 24px rgba(25, 25, 25, 0.08),
     0 0 0 1px var(--border-default);
 
-  /* Z-index scale (overlays). Введено в MDP-16/MDP-19. */
-  --z-floating-toolbar: 50;
-  --z-context-menu: 1000;
-
   /* Focus ring — толщина обводки фокуса (box-shadow spread). Цвет задаётся
      на месте через --accent-muted; здесь вынесена только хардкод-геометрия. */
   --focus-ring-width: 2px;
