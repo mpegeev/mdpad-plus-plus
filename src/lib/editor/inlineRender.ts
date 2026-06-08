@@ -46,14 +46,29 @@
  * инстанс с `html: false`, поэтому HTML экранируется (как текст), а не
  * исполняется. Разница в конфигурации двух инстансов и есть барьер: тест XSS
  * в `inlineRender.decorations.test.ts` фиксирует это поведение для html_block.
+ *
+ * ## Активный raw-блок (MDP-13)
+ *
+ * Один блок может быть «активным» — показанным как сырой Markdown для правки.
+ * Его позицию (offset начала блока) хранит `rawBlockField: StateField<number |
+ * null>`; `null` — все блоки отрендерены. `buildDecorations` пропускает блок,
+ * чей `from` совпадает с активным, поэтому его виджет не строится и пользователь
+ * видит исходный текст. Переключение — только явными действиями: клик по
+ * виджету, F2 (toggle), Esc (вернуть рендер). Перемещение каретки активный блок
+ * НЕ меняет — авто-ререндер при потере фокуса вынесен в MDP-14.
  */
 
-import { EditorView, WidgetType, Decoration } from "@codemirror/view";
-import type { DecorationSet } from "@codemirror/view";
-import { StateField, RangeSetBuilder } from "@codemirror/state";
+import { EditorView, WidgetType, Decoration, keymap } from "@codemirror/view";
+import type { DecorationSet, Command } from "@codemirror/view";
+import {
+  StateField,
+  StateEffect,
+  RangeSetBuilder,
+  MapMode,
+} from "@codemirror/state";
 import type { Extension } from "@codemirror/state";
 import MarkdownIt from "markdown-it";
-import { parseBlocks, type BlockType } from "$lib/markdown/blocks";
+import { parseBlocks, type Block, type BlockType } from "$lib/markdown/blocks";
 
 // ---------------------------------------------------------------------------
 // Кэш рендера raw → html
@@ -158,6 +173,66 @@ export class RenderedBlockWidget extends WidgetType {
 }
 
 // ---------------------------------------------------------------------------
+// Активный raw-блок (MDP-13)
+// ---------------------------------------------------------------------------
+
+/**
+ * Эффект смены активного raw-блока. Значение — offset начала блока (`block.from`)
+ * или `null`, чтобы вернуть всё к рендеру.
+ */
+export const setRawBlock = StateEffect.define<number | null>();
+
+/**
+ * Позиция активного (raw) блока — его `from`, либо `null`, если активного нет.
+ *
+ * Меняется ТОЛЬКО эффектом `setRawBlock` (клик / F2 / Esc). При изменении
+ * документа позиция мапится через `changes`, чтобы остаться привязанной к началу
+ * того же блока. Селекция/скролл поле не трогают — это и есть «ручная» модель из
+ * AC: перемещение каретки не делает блок raw автоматически.
+ */
+export const rawBlockField = StateField.define<number | null>({
+  create() {
+    return null;
+  },
+  update(value, tr) {
+    let next = value;
+    // Сначала переносим позицию через правки документа (привязка к началу блока,
+    // assoc -1 — позиция остаётся слева от вставки ровно на границе). `TrackDel`
+    // заставляет mapPos вернуть `null`, если позицию начала блока удалили
+    // (например, внешняя замена всего буфера через doc-проп Editor.svelte):
+    // тогда активного блока больше нет — fail-closed остаёмся на null, чтобы не
+    // было «висячей» позиции, случайно совпадающей с началом другого блока.
+    if (next !== null && tr.docChanged) {
+      next = tr.changes.mapPos(next, -1, MapMode.TrackDel);
+    }
+    // Затем применяем явный эффект — он задаёт значение в координатах нового
+    // документа (мы никогда не совмещаем setRawBlock с правкой в одной транзакции).
+    for (const effect of tr.effects) {
+      if (effect.is(setRawBlock)) {
+        next = effect.value;
+      }
+    }
+    return next;
+  },
+});
+
+/**
+ * Находит блок, содержащий позицию `pos` (`from <= pos <= to`), либо `null`.
+ *
+ * Границы инклюзивны с обеих сторон: каретка в самом начале или в самом конце
+ * блока считается «внутри» него. Блоки не пересекаются и отсортированы по `from`,
+ * поэтому на общей границе двух блоков (без пустой строки между ними) вернётся
+ * первый — для toggle это не важно. Чистая функция: один и тот же вход даёт один
+ * и тот же выход.
+ */
+export function findBlockAt(source: string, pos: number): Block | null {
+  for (const block of parseBlocks(source)) {
+    if (pos >= block.from && pos <= block.to) return block;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Построение набора декораций
 // ---------------------------------------------------------------------------
 
@@ -169,10 +244,17 @@ export class RenderedBlockWidget extends WidgetType {
  * блока (финальный `\n` блока **исключён**, чтобы перенос строки оставался
  * границей между виджетами, а не съедался декорацией). `block.from` и `end`
  * лежат на границах строк CM6 — обязательное условие для block-декораций.
+ *
+ * Блок, чей `from` совпадает с `rawFrom`, **пропускается**: он активен (raw),
+ * виджет для него не строится, пользователь видит исходный Markdown (MDP-13).
  */
-function buildDecorations(source: string): DecorationSet {
+function buildDecorations(
+  source: string,
+  rawFrom: number | null,
+): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   for (const block of parseBlocks(source)) {
+    if (rawFrom !== null && block.from === rawFrom) continue;
     let end = block.to;
     // Отрезаем завершающий перевод строки блока: он — разделитель, не контент.
     if (end > block.from && source.charCodeAt(end - 1) === 0x0a /* \n */) {
@@ -196,20 +278,91 @@ function buildDecorations(source: string): DecorationSet {
 // ---------------------------------------------------------------------------
 
 /**
- * Поле с набором декораций рендера. Пересобирается только при изменении
- * документа (скролл/выделение не трогают набор — пока весь документ рендерится
- * целиком; активный raw-блок появится в MDP-13). Экспортируется для проверки
- * корректности декораций в тестах.
+ * Поле с набором декораций рендера. Пересобирается при изменении документа ИЛИ
+ * при смене активного raw-блока (`rawBlockField`) — иначе скролл/выделение набор
+ * не трогают, что и обеспечивает стабильность при скролле. Читает `rawBlockField`,
+ * поэтому в стеке расширений обязано идти ПОСЛЕ него (см. `inlineRender()`).
+ * Экспортируется для проверки корректности декораций в тестах.
  */
 export const inlineRenderField = StateField.define<DecorationSet>({
   create(state) {
-    return buildDecorations(state.doc.toString());
+    return buildDecorations(state.doc.toString(), state.field(rawBlockField));
   },
   update(deco, tr) {
-    if (!tr.docChanged) return deco;
-    return buildDecorations(tr.state.doc.toString());
+    const rawNew = tr.state.field(rawBlockField);
+    const rawOld = tr.startState.field(rawBlockField);
+    if (!tr.docChanged && rawNew === rawOld) return deco;
+    return buildDecorations(tr.state.doc.toString(), rawNew);
   },
   provide: (f) => EditorView.decorations.from(f),
+});
+
+// ---------------------------------------------------------------------------
+// Команды и обработчики: F2 / Esc / клик (MDP-13)
+// ---------------------------------------------------------------------------
+
+/**
+ * F2 — toggle raw-режима блока под кареткой. Если блок уже активен (raw),
+ * возвращает его в рендер; иначе делает активным и ставит каретку в его начало.
+ * Если каретка не внутри блока (пустая строка/пустой документ) — no-op.
+ */
+export const toggleRawBlock: Command = (view) => {
+  const { state } = view;
+  const block = findBlockAt(state.doc.toString(), state.selection.main.head);
+  if (!block) return false;
+  if (state.field(rawBlockField) === block.from) {
+    view.dispatch({ effects: setRawBlock.of(null) });
+  } else {
+    view.dispatch({
+      effects: setRawBlock.of(block.from),
+      selection: { anchor: block.from },
+    });
+  }
+  return true;
+};
+
+/**
+ * Esc — возвращает рендер активного блока. Если активного нет, не перехватывает
+ * клавишу (возвращает `false`), чтобы Esc оставался доступен другим обработчикам.
+ */
+export const escapeRawBlock: Command = (view) => {
+  if (view.state.field(rawBlockField) === null) return false;
+  view.dispatch({ effects: setRawBlock.of(null) });
+  return true;
+};
+
+const rawBlockKeymap = keymap.of([
+  { key: "F2", run: toggleRawBlock, preventDefault: true },
+  { key: "Escape", run: escapeRawBlock },
+]);
+
+/**
+ * Двойной клик по виджету блока: делает блок активным (raw), ставит каретку в
+ * его начало и забирает фокус. Виджет снимается при пересборке декораций.
+ * Одиночный клик намеренно НЕ перехватываем — он оставляет дефолтное поведение
+ * CodeMirror (позиционирование каретки рядом с блоком), чтобы можно было просто
+ * ткнуть в текст, не входя в raw. `posAtDOM` берёт позицию структурно (без
+ * layout) — работает и в jsdom-тестах.
+ */
+const rawBlockClickHandler = EditorView.domEventHandlers({
+  dblclick(event, view) {
+    const target = event.target as HTMLElement | null;
+    const widget = target?.closest(".cm-md-block");
+    if (!widget) return false;
+    // Валидация перед posAtDOM: узел обязан принадлежать DOM редактора. closest
+    // от target внутри редактора это уже гарантирует, но проверка fail-closed
+    // защищает от чужого элемента с таким же классом (posAtDOM иначе бросил бы).
+    if (!view.dom.contains(widget)) return false;
+    const pos = view.posAtDOM(widget as HTMLElement);
+    const block = findBlockAt(view.state.doc.toString(), pos);
+    if (!block) return false;
+    view.dispatch({
+      effects: setRawBlock.of(block.from),
+      selection: { anchor: block.from },
+    });
+    view.focus();
+    return true;
+  },
 });
 
 /**
@@ -327,7 +480,18 @@ const inlineRenderTheme = EditorView.baseTheme({
 /**
  * Фабрика расширения inline-рендера. Добавь в стек расширений `EditorState`,
  * чтобы документ открывался отрендеренным по блокам.
+ *
+ * Порядок важен: `rawBlockField` идёт ПЕРЕД `inlineRenderField`, потому что тот
+ * читает значение поля в `create`/`update` (CM6 инициализирует поля по порядку).
+ * `rawBlockKeymap`/`rawBlockClickHandler` добавлены раньше основного keymap из
+ * `Editor.svelte`, поэтому F2/Esc/клик имеют приоритет над дефолтными биндингами.
  */
 export function inlineRender(): Extension {
-  return [inlineRenderField, inlineRenderTheme];
+  return [
+    rawBlockField,
+    inlineRenderField,
+    rawBlockKeymap,
+    rawBlockClickHandler,
+    inlineRenderTheme,
+  ];
 }
