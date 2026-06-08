@@ -295,6 +295,54 @@ export function setActive(id: DocumentId): void {
   schedulePersist();
 }
 
+/**
+ * Reorder the tab `id` so it lands at array position `toIndex` (MDP-19).
+ *
+ * `toIndex` is clamped to `[0, length - 1]`; out-of-range targets snap to
+ * the nearest valid slot rather than failing. Unknown `id` and a move that
+ * does not change the order are no-ops (no spurious persist). The active
+ * document pointer is preserved by id — reordering never changes which tab
+ * is active. Backs the drag-and-drop reorder; pure array logic so it is
+ * unit-testable without a DOM.
+ */
+export function moveTab(id: DocumentId, toIndex: number): void {
+  const from = findIndex(id);
+  if (from === -1) return;
+  if (!Number.isFinite(toIndex)) return;
+  const to = Math.max(0, Math.min(Math.trunc(toIndex), documents.length - 1));
+  if (to === from) return;
+  const [moved] = documents.splice(from, 1);
+  documents.splice(to, 0, moved);
+  schedulePersist();
+}
+
+/**
+ * Close every tab except `id` (context-menu "Close Others", MDP-19).
+ *
+ * The kept document becomes active. Unknown `id` is a no-op. When `id` is
+ * already the only open tab nothing changes.
+ */
+export function closeOthers(id: DocumentId): void {
+  if (findIndex(id) === -1) return;
+  const kept = documents.find((d) => d.id === id);
+  if (!kept) return;
+  if (documents.length === 1) return;
+  documents.splice(0, documents.length, kept);
+  activeId = kept.id;
+  schedulePersist();
+}
+
+/**
+ * Close all tabs (context-menu "Close All", MDP-19). Clears the active
+ * pointer to `null`. No-op when there are no open tabs.
+ */
+export function closeAll(): void {
+  if (documents.length === 0) return;
+  documents.splice(0, documents.length);
+  activeId = null;
+  schedulePersist();
+}
+
 export function updateBuffer(id: DocumentId, content: string): void {
   const doc = documents.find((d) => d.id === id);
   if (!doc) return;
