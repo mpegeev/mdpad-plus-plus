@@ -3,7 +3,7 @@
 > Дорожная карта Linear-задач с учётом зависимостей и возможностей параллельной работы в worktree.
 > Каждая задача = отдельный PR. Звёздочка ★ = можно параллелить в worktree.
 > Зафиксировано: 2026-06-06 (после создания MDP-38).
-> Обновлено: 2026-06-07 (Фаза 1 / M2 Editor Foundation **завершена**: MDP-6/7/8/11/43 смержены, затем MDP-10/9/39/42 реализованы в параллельных worktree и смержены).
+> Обновлено: 2026-06-09 (Фаза 2 / M3 Inline Render **завершена**: MDP-12/13/14/15/41 смержены; Фаза 3 / M4 — основной батч MDP-16/17/19 смержен, follow-ups MDP-46/47/48 в работе).
 
 ## Принципы
 
@@ -58,29 +58,47 @@
 
 ---
 
-## Фаза 2 · M3 Inline Render (последовательно — tight coupling) — ⏭️ следующая
+## Фаза 2 · M3 Inline Render (последовательно — tight coupling) — ✅ завершена
 
-Зависимости разблокированы (MDP-6/11/43 смержены). Стартовая задача — MDP-12; параллельно можно вести MDP-41.
+Все задачи фазы реализованы (часть — параллельно) и смержены в `main`.
+Ключевая идея проверена: блоки рендерятся через `Decoration.replace` + `WidgetType`,
+F2/click снимает виджет → raw, blur/Esc/Ctrl+E возвращают/переключают режим.
 
-| #   | Задача                                                        | Зависит от                                 |
-| --- | ------------------------------------------------------------- | ------------------------------------------ |
-| 11  | **MDP-12** Decoration.replace + WidgetType ⭐ ключевая        | MDP-6 + MDP-11 + MDP-43                    |
-| 12  | ★ **MDP-41** CommonMark spec test suite для parseBlocks (2pt) | MDP-11 + MDP-43 (можно параллельно с #11)  |
-| 13  | **MDP-13** F2 / click → raw mode                              | MDP-12                                     |
-| 14  | **MDP-14** Auto re-render on focus loss / Esc                 | MDP-13                                     |
-| 15  | ★ **MDP-15** Render mode toggle (rendered/mixed/raw)          | MDP-12 + MDP-8 (можно параллельно с 13–14) |
+| #   | Задача                                                  | Статус    | PR                                                                                                                            |
+| --- | ------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 11  | **MDP-12** Decoration.replace + WidgetType ⭐ ключевая  | ✅ merged | [#25](https://github.com/mpegeev/mdpad-plus-plus/pull/25)                                                                     |
+| 12  | ★ **MDP-41** CommonMark spec test suite для parseBlocks | ✅ merged | [#24](https://github.com/mpegeev/mdpad-plus-plus/pull/24)                                                                     |
+| 13  | **MDP-13** F2 / click → raw mode                        | ✅ merged | [#26](https://github.com/mpegeev/mdpad-plus-plus/pull/26)                                                                     |
+| 14  | **MDP-14** Auto re-render on focus loss / Esc           | ✅ merged | [#27](https://github.com/mpegeev/mdpad-plus-plus/pull/27) + [#32](https://github.com/mpegeev/mdpad-plus-plus/pull/32) (ретро) |
+| 15  | ★ **MDP-15** Render mode toggle (rendered/mixed/raw)    | ✅ merged | [#28](https://github.com/mpegeev/mdpad-plus-plus/pull/28) + #32 + [#34](https://github.com/mpegeev/mdpad-plus-plus/pull/34)   |
+
+> **Ретро-ревью M3/M4 (2026-06-08).** Задачи M3/M4 (#27/#28/#29/#30/#31) изначально велись фоновыми
+> субагентами, которым недоступен запуск вложенных `test-writer`/`senar-reviewer` — независимое
+> SENAR-ревью по ним не проводилось. Проведено ретроспективно из главного цикла: `senar-reviewer` ×5,
+> независимые `test-writer`-наборы ×6 ([#32](https://github.com/mpegeev/mdpad-plus-plus/pull/32)
+> чинит находки #14/#15, [#34](https://github.com/mpegeev/mdpad-plus-plus/pull/34) — независимые тесты
+> `cycleMode`, [#33](https://github.com/mpegeev/mdpad-plus-plus/pull/33) — контрактные тесты для
+> follow-ups M4). Урок: фоновые субагенты не заменяют SENAR-шлюз — независимые проверки запускаем из
+> главного цикла.
 
 ---
 
-## Фаза 3 · M4 Formatting & UX (3 параллельных worktree)
+## Фаза 3 · M4 Formatting & UX
 
-| #   | Задача                                                     | Worktree | Зависит от                                            |
-| --- | ---------------------------------------------------------- | -------- | ----------------------------------------------------- |
-| 16  | ★ **MDP-17** Format bold/italic/code                       | A        | MDP-6                                                 |
-| 17  | ★ **MDP-16** Floating selection toolbar                    | B        | MDP-6                                                 |
-| 18  | ★ **MDP-19** Tabs drag-reorder, middle-click, context menu | C        | MDP-8                                                 |
-| 19  | **MDP-18** Format heading levels + indent                  | A        | MDP-17 (следом за #16)                                |
-| 20  | **MDP-20** Window/sidebar position persistence             | —        | лучше после MDP-26 (или собственная мини-persistence) |
+Основной батч (MDP-16/17/19) реализован в параллельных worktree и смержен.
+Порядок мержа ретро-фиксов и батча: **#33 → #34 → #32 → #29 → #30 → #31**.
+Из ретро-ревью выделены follow-ups MDP-46/47/48 (контрактные тесты — #33).
+
+| #   | Задача                                                      | Статус      | PR / зависит от                                           |
+| --- | ----------------------------------------------------------- | ----------- | --------------------------------------------------------- |
+| 16  | ★ **MDP-17** Format bold/italic/underline/code/code-fence   | ✅ merged   | [#29](https://github.com/mpegeev/mdpad-plus-plus/pull/29) |
+| 17  | ★ **MDP-16** Floating selection toolbar                     | ✅ merged   | [#31](https://github.com/mpegeev/mdpad-plus-plus/pull/31) |
+| 18  | ★ **MDP-19** Tabs drag-reorder, middle-click, context menu  | ✅ merged   | [#30](https://github.com/mpegeev/mdpad-plus-plus/pull/30) |
+| 18a | **MDP-46** Интеграция toolbar ↔ команды (`formatForAction`) | ⏳ в работе | MDP-16 + MDP-17 (контрактные тесты в #33)                 |
+| 18b | **MDP-47** Reveal in Sidebar: expand-to-path                | ⏳ в работе | MDP-19 (контрактные тесты в #33)                          |
+| 18c | **MDP-48** Floating toolbar: измерять фактический размер    | ⏳ в работе | MDP-16 (верификация интеграционная/ручная)                |
+| 19  | **MDP-18** Format heading levels + indent                   | ⬜ todo     | MDP-17 (следом за #16)                                    |
+| 20  | **MDP-20** Window/sidebar position persistence              | ⬜ todo     | лучше после MDP-26 (или собственная мини-persistence)     |
 
 ---
 
@@ -136,11 +154,16 @@
 - **SENAR follow-ups из M2-batch:**
   - ✅ [MDP-39](https://linear.app/mpegeev/issue/MDP-39) (Tauri ACL `$HOME/**` сужение + Rust-side path validation — поднято в MDP-7 и MDP-38, объединено в одну задачу). **Merged** ([#19](https://github.com/mpegeev/mdpad-plus-plus/pull/19)): scope сужен до `$APPDATA`+`$DOCUMENT`, `validate_path_within` + unit-тесты.
   - ⬜ [MDP-40](https://linear.app/mpegeev/issue/MDP-40) (`.expect()` в `src-tauri/src/lib.rs:17` — поднято в MDP-38). Pre-existing нарушение, можно делать в любой момент M2..M7, обязательно до MDP-33 release. (см. Фаза 6 #31)
-  - ⬜ [MDP-41](https://linear.app/mpegeev/issue/MDP-41) (CommonMark spec test suite для parseBlocks — поднято в MDP-11). Внешние фикстуры независимы от агентских ожиданий. (см. Фаза 2 #12)
+  - ✅ [MDP-41](https://linear.app/mpegeev/issue/MDP-41) (CommonMark spec test suite для parseBlocks — поднято в MDP-11). **Merged** ([#24](https://github.com/mpegeev/mdpad-plus-plus/pull/24)): внешние фикстуры независимы от агентских ожиданий.
   - ✅ [MDP-42](https://linear.app/mpegeev/issue/MDP-42) (property-based тесты для path validation — поднято в MDP-7). **Merged** ([#20](https://github.com/mpegeev/mdpad-plus-plus/pull/20)): proptest, 4 свойства × 1000 случаев, ловит edge cases.
   - ✅ [MDP-43](https://linear.app/mpegeev/issue/MDP-43) (test-writer субагент + SENAR-процесс — поднято в MDP-11). **Merged** ([#14](https://github.com/mpegeev/mdpad-plus-plus/pull/14)). Структурное улучшение, действует на ВСЕ последующие задачи.
 
-  Остаются открытыми из follow-ups: **MDP-40**, **MDP-41**. (Runtime-scope долг MDP-9 ↔ MDP-39 закрыт в **MDP-44**, см. Фазу 1.)
+  Остаётся открытым из follow-ups: **MDP-40** (см. Фаза 6 #31). (Runtime-scope долг MDP-9 ↔ MDP-39 закрыт в **MDP-44**, см. Фазу 1; MDP-41 смержен — #24.)
+
+- **SENAR follow-ups из ретро-ревью M3/M4 (2026-06-08):**
+  - ⏳ [MDP-46](https://linear.app/mpegeev/issue/MDP-46) — интеграция floating toolbar ↔ команды форматирования (`formatForAction`); контрактные тесты test-writer закоммичены в [#33](https://github.com/mpegeev/mdpad-plus-plus/pull/33).
+  - ⏳ [MDP-47](https://linear.app/mpegeev/issue/MDP-47) — Reveal in Sidebar: expand-to-path (`ancestorDirsToReveal` + `revealPath`); контрактные тесты в #33.
+  - ⏳ [MDP-48](https://linear.app/mpegeev/issue/MDP-48) — floating toolbar: измерять фактический размер вместо хардкода `TOOLBAR_SIZE 172×32`; верификация интеграционная/ручная (чистого ядра нет).
 
 - **Worktree gotchas из M2-batch:**
   - `node_modules` через **junction** в worktree РАБОТАЕТ при наличии `vitest.config.ts` с `server.fs.allow: ["..", "../.."]` (подход MDP-6/8/11). В follow-up-батче (MDP-10/9/39/42) junction `node_modules` + общий `dist`/`CARGO_TARGET_DIR` использовались без реального `npm install` — vitest/eslint/cargo прошли. Без `server.fs.allow` Vite-резолвер блокирует `@testing-library/svelte` — тогда нужен реальный `npm install` в каждом worktree.
