@@ -184,6 +184,125 @@ describe("closeTab", () => {
   });
 });
 
+describe("moveTab (drag-reorder, MDP-19)", () => {
+  it("moves a tab forward to the requested index", async () => {
+    const s = await loadStore();
+    const a = s.openFile("/a.md", "a");
+    const b = s.openFile("/b.md", "b");
+    const c = s.openFile("/c.md", "c");
+    s.moveTab(a, 2); // a → end
+    expect(s.getDocuments().map((d) => d.id)).toEqual([b, c, a]);
+  });
+
+  it("moves a tab backward to the requested index", async () => {
+    const s = await loadStore();
+    const a = s.openFile("/a.md", "a");
+    const b = s.openFile("/b.md", "b");
+    const c = s.openFile("/c.md", "c");
+    s.moveTab(c, 0); // c → start
+    expect(s.getDocuments().map((d) => d.id)).toEqual([c, a, b]);
+  });
+
+  it("preserves the active document across a reorder", async () => {
+    const s = await loadStore();
+    const a = s.openFile("/a.md", "a");
+    const b = s.openFile("/b.md", "b");
+    const c = s.openFile("/c.md", "c"); // active = c
+    s.setActive(a);
+    s.moveTab(b, 0);
+    expect(s.getActiveId()).toBe(a);
+    expect(s.getDocuments().map((d) => d.id)).toEqual([b, a, c]);
+  });
+
+  it("clamps an out-of-range target index to the last slot", async () => {
+    const s = await loadStore();
+    const a = s.openFile("/a.md", "a");
+    const b = s.openFile("/b.md", "b");
+    s.moveTab(a, 99);
+    expect(s.getDocuments().map((d) => d.id)).toEqual([b, a]);
+  });
+
+  it("clamps a negative target index to the first slot", async () => {
+    const s = await loadStore();
+    const a = s.openFile("/a.md", "a");
+    const b = s.openFile("/b.md", "b");
+    s.moveTab(b, -5);
+    expect(s.getDocuments().map((d) => d.id)).toEqual([b, a]);
+  });
+
+  it("is a no-op when the index does not change order", async () => {
+    const s = await loadStore();
+    const a = s.openFile("/a.md", "a");
+    const b = s.openFile("/b.md", "b");
+    s.moveTab(a, 0);
+    expect(s.getDocuments().map((d) => d.id)).toEqual([a, b]);
+  });
+
+  it("is a no-op for an unknown id", async () => {
+    const s = await loadStore();
+    const a = s.openFile("/a.md", "a");
+    const b = s.openFile("/b.md", "b");
+    s.moveTab("nope", 0);
+    expect(s.getDocuments().map((d) => d.id)).toEqual([a, b]);
+  });
+});
+
+describe("closeOthers (MDP-19)", () => {
+  it("keeps only the given tab and makes it active", async () => {
+    const s = await loadStore();
+    s.openFile("/a.md", "a");
+    const b = s.openFile("/b.md", "b");
+    s.openFile("/c.md", "c");
+    s.closeOthers(b);
+    expect(s.getDocuments().map((d) => d.id)).toEqual([b]);
+    expect(s.getActiveId()).toBe(b);
+  });
+
+  it("activates the kept tab even when another was active", async () => {
+    const s = await loadStore();
+    const a = s.openFile("/a.md", "a");
+    const b = s.openFile("/b.md", "b");
+    s.setActive(a); // active = a, but we keep b
+    s.closeOthers(b);
+    expect(s.getActiveId()).toBe(b);
+  });
+
+  it("is a no-op when the given tab is the only one open", async () => {
+    const s = await loadStore();
+    const a = s.openFile("/a.md", "a");
+    s.closeOthers(a);
+    expect(s.getDocuments().map((d) => d.id)).toEqual([a]);
+    expect(s.getActiveId()).toBe(a);
+  });
+
+  it("is a no-op for an unknown id", async () => {
+    const s = await loadStore();
+    const a = s.openFile("/a.md", "a");
+    const b = s.openFile("/b.md", "b");
+    s.closeOthers("missing");
+    expect(s.getDocuments().map((d) => d.id)).toEqual([a, b]);
+  });
+});
+
+describe("closeAll (MDP-19)", () => {
+  it("removes every tab and clears the active pointer", async () => {
+    const s = await loadStore();
+    s.openFile("/a.md", "a");
+    s.openFile("/b.md", "b");
+    s.closeAll();
+    expect(s.getDocuments()).toHaveLength(0);
+    expect(s.getActiveId()).toBeNull();
+    expect(s.getActive()).toBeNull();
+  });
+
+  it("is a no-op when there are no tabs", async () => {
+    const s = await loadStore();
+    s.closeAll();
+    expect(s.getDocuments()).toHaveLength(0);
+    expect(s.getActiveId()).toBeNull();
+  });
+});
+
 describe("dirty tracking", () => {
   it("updateBuffer marks the document dirty; markSaved clears it", async () => {
     const s = await loadStore();

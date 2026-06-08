@@ -9,6 +9,7 @@
     SIDEBAR_MIN,
     SIDEBAR_MAX,
   } from "$lib/layout/clampSidebarWidth";
+  import { setActive, type DocumentId } from "$lib/stores/documents.svelte";
 
   let sidebarWidth = $state(SIDEBAR_DEFAULT);
   let sidebarCollapsed = $state(false);
@@ -31,13 +32,26 @@
   function onSidebarResize(next: number) {
     sidebarWidth = next;
   }
+
+  // "Reveal in Sidebar" (MDP-19). Make the document active so the file-tree
+  // highlights its row, then ensure the sidebar is visible. The tree already
+  // highlights the active document's path (Sidebar.svelte `activePath`); a
+  // full expand-to-path of collapsed ancestor folders is out of scope here.
+  function onRevealInSidebar(id: DocumentId) {
+    setActive(id);
+    if (sidebarCollapsed) sidebarCollapsed = false;
+  }
 </script>
 
 <div
   class="app"
   style="--sidebar-current-width: {sidebarCollapsed ? 0 : sidebarWidth}px;"
 >
-  <TabsBar {sidebarCollapsed} onToggleSidebar={toggleSidebar} />
+  <TabsBar
+    {sidebarCollapsed}
+    onToggleSidebar={toggleSidebar}
+    {onRevealInSidebar}
+  />
 
   <div class="app__middle">
     {#if !sidebarCollapsed}

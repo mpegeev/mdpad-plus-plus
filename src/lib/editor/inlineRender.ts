@@ -395,15 +395,30 @@ const rawBlockClickHandler = EditorView.domEventHandlers({
  * редактора или `null` (фокус ушёл наружу/в никуда) — ререндерим.
  *
  * Возвращаем `false`: blur — не «команда», мы не «поглощаем» событие, только
- * реагируем побочным эффектом (диспатч). Сам диспатч безопасен: к моменту blur
- * view ещё жив (destroy снимает DOM-listeners до уничтожения состояния).
+ * реагируем побочным эффектом (диспатч).
+ *
+ * Fail-closed перед диспатчем (RISK-1): при быстром закрытии/смене вкладки blur
+ * может прийти, когда view уже отсоединён от DOM (но обработчик ещё навешан).
+ * Диспатч в такой view бессмысленен и может бросить из-за гонки уничтожения.
+ * Проверяем `view.dom.isConnected`: это самый дешёвый и точный признак того,
+ * что view ещё в живом дереве документа — не диспатчим, если он отсоединён.
+ * `try/catch` дополнительно страхует от гонки, когда view отсоединяется ровно
+ * между проверкой и диспатчем; пустого `catch {}` нет — причина задокументирована.
  */
 const rawBlockBlurHandler = EditorView.domEventHandlers({
   blur(event, view) {
     if (view.state.field(rawBlockField) === null) return false;
     const next = event.relatedTarget;
     if (next instanceof Node && view.dom.contains(next)) return false;
-    view.dispatch({ effects: setRawBlock.of(null) });
+    // View отсоединён от документа (вкладку закрыли/сменили) — диспатч не нужен
+    // и небезопасен.
+    if (!view.dom.isConnected) return false;
+    try {
+      view.dispatch({ effects: setRawBlock.of(null) });
+    } catch {
+      // Гонка уничтожения: view отсоединился между проверкой и dispatch.
+      // Глотаем намеренно — ререндерить уже нечего, состояние выбрасывается.
+    }
     return false;
   },
 });
@@ -415,7 +430,7 @@ const rawBlockBlurHandler = EditorView.domEventHandlers({
  * Размеры заголовков размечены в `tokens.css` именно под rendered-контент
  * (`--fs-3xl`=H1, `--fs-2xl`=H2, `--fs-xl`=H3). Тонкая полировка — позже.
  */
-const inlineRenderTheme = EditorView.baseTheme({
+export const inlineRenderThemeSpec: Record<string, Record<string, string>> = {
   ".cm-md-block": {
     padding: "var(--space-1) 0",
     fontFamily: "var(--font-prose)",
@@ -522,7 +537,14 @@ const inlineRenderTheme = EditorView.baseTheme({
     fontWeight: "var(--fw-bold)",
     background: "var(--bg-elevated)",
   },
-});
+};
+
+/**
+ * Типографика отрендеренного блока как CM6-расширение. Спецификация вынесена в
+ * `inlineRenderThemeSpec` (экспортируется), чтобы тесты могли дёшево проверять
+ * правила (например запрет анимаций all/height — AC#3 MDP-14) без layout.
+ */
+const inlineRenderTheme = EditorView.baseTheme(inlineRenderThemeSpec);
 
 /**
  * Фабрика расширения inline-рендера. Добавь в стек расширений `EditorState`,
@@ -587,7 +609,11 @@ export function mixedModeExtension(): Extension {
     const head = tr.newSelection.main.head;
     const block = findBlockAt(tr.newDoc.toString(), head);
     const nextRaw = block ? block.from : null;
-    const currentRaw = tr.startState.field(rawBlockField);
+    // Нетребовательное чтение (`require: false`) с фолбэком на `null`: при
+    // reconfigure-транзакции, переключающей режим (MDP-15), `rawBlockField` может
+    // отсутствовать в `startState` (поля inline-рендера снимаются), и требовательная
+    // форма бросила бы «Field is not present». Так же защищён `inlineRenderField`.
+    const currentRaw = tr.startState.field(rawBlockField, false) ?? null;
     if (nextRaw === currentRaw) return null;
     return { effects: setRawBlock.of(nextRaw) };
   });
