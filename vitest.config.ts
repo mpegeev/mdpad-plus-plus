@@ -18,7 +18,12 @@ export default defineConfig({
   },
   server: {
     fs: {
-      allow: ["..", "../.."],
+      // Воркти лежит на `.claude/worktrees/<id>` (3 уровня от корня репо), а
+      // `node_modules` junction-линкуется из основного чекаута в корне. Поэтому
+      // разрешаем доступ вплоть до `../../..` (корень репо) — иначе Vite-песочница
+      // отвергает setupFile из `@testing-library/svelte/vite`, чей realpath
+      // выходит за пределы воркти. Локальный (не-worktree) запуск это не ломает.
+      allow: ["..", "../..", "../../.."],
     },
   },
   test: {
