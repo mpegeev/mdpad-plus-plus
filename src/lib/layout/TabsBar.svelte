@@ -143,6 +143,23 @@
     dragOverId = id;
   }
 
+  function onTabsDragLeave(e: DragEvent) {
+    if (dragId === null) return;
+    // `dragleave` fires when crossing between child tabs too. Only clear the
+    // hover affordance when the pointer truly leaves the tabs container:
+    // relatedTarget is the node being entered (null when leaving the window).
+    const next = e.relatedTarget;
+    const container = e.currentTarget;
+    if (
+      next instanceof Node &&
+      container instanceof Node &&
+      container.contains(next)
+    ) {
+      return;
+    }
+    dragOverId = null;
+  }
+
   function onDrop(e: DragEvent, targetId: DocumentId) {
     e.preventDefault();
     if (dragId === null || dragId === targetId) {
@@ -178,7 +195,7 @@
        lands once a real tabpanel exists. For now tabs activate, close,
        reorder (drag), middle-click-close and expose a context menu; roles
        stay minimal to avoid promising a tabpanel that does not yet exist. -->
-  <div class="tabs-bar__tabs">
+  <div class="tabs-bar__tabs" ondragleave={onTabsDragLeave} role="presentation">
     {#each documents as doc (doc.id)}
       <div
         class="tab"

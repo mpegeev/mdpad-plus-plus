@@ -36,6 +36,19 @@
 
   const { items, x, y, onClose }: Props = $props();
 
+  /**
+   * Icon size for menu rows (px). The blank spacer for icon-less items must
+   * match this exactly so labels stay aligned, hence a single source of truth
+   * shared between the <Icon> and the spacer's CSS (via a custom property).
+   */
+  const ICON_SIZE = 14;
+
+  /**
+   * Viewport edge gap for the clamp math (px). Lives in JS (not `--space-*`)
+   * because it is consumed by `getBoundingClientRect` arithmetic, not CSS.
+   */
+  const VIEWPORT_MARGIN = 4;
+
   let menuEl: HTMLDivElement | undefined = $state();
   // Clamp offsets applied after mount so the menu never overflows the
   // viewport. `null` ⇒ not measured yet, render at the raw cursor point.
@@ -93,7 +106,7 @@
     void tick().then(() => {
       if (!menuEl) return;
       const rect = menuEl.getBoundingClientRect();
-      const margin = 4;
+      const margin = VIEWPORT_MARGIN;
       let nx = reqX;
       let ny = reqY;
       if (nx + rect.width > window.innerWidth - margin) {
@@ -135,9 +148,13 @@
       onclick={() => selectItem(item)}
     >
       {#if item.icon}
-        <Icon name={item.icon} size={14} />
+        <Icon name={item.icon} size={ICON_SIZE} />
       {:else}
-        <span class="context-menu__icon-spacer" aria-hidden="true"></span>
+        <span
+          class="context-menu__icon-spacer"
+          style="width: {ICON_SIZE}px; height: {ICON_SIZE}px;"
+          aria-hidden="true"
+        ></span>
       {/if}
       <span class="context-menu__label">{item.label}</span>
     </button>
@@ -147,9 +164,9 @@
 <style>
   .context-menu {
     position: fixed;
-    z-index: 1000;
-    min-width: 180px;
-    max-width: 320px;
+    z-index: var(--z-context-menu);
+    min-width: var(--context-menu-min-width);
+    max-width: var(--context-menu-max-width);
     padding: var(--space-1);
     background: var(--bg-overlay);
     border-radius: var(--radius-md);
@@ -197,10 +214,10 @@
     cursor: default;
   }
 
+  /* Size is set inline from the ICON_SIZE constant so the blank slot always
+     matches the rendered <Icon> width — single source of truth in the script. */
   .context-menu__icon-spacer {
     display: inline-block;
-    width: 14px;
-    height: 14px;
     flex-shrink: 0;
   }
 

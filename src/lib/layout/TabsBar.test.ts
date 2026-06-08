@@ -226,4 +226,53 @@ describe("TabsBar — context menu (AC#3)", () => {
     await tick();
     expect(document.querySelector(".context-menu")).toBeNull();
   });
+
+  it("closes the menu on a pointerdown outside it (UI-8)", async () => {
+    docs.openFile("/a.md", "a");
+    const { container } = renderBar();
+    await tick();
+    await openMenu(container);
+    expect(document.querySelector(".context-menu")).not.toBeNull();
+    // Pointer down on the document body (outside the portal'd menu) dismisses.
+    // jsdom lacks `PointerEvent`; a bubbling Event of the same type reaches the
+    // same `svelte:window` onpointerdown listener the component registers.
+    await fireEvent(document.body, new Event("pointerdown", { bubbles: true }));
+    await tick();
+    expect(document.querySelector(".context-menu")).toBeNull();
+  });
+
+  it("keeps the menu open on a pointerdown inside it (UI-8)", async () => {
+    docs.openFile("/a.md", "a");
+    const { container } = renderBar();
+    await tick();
+    await openMenu(container);
+    const menuEl = document.querySelector<HTMLElement>(".context-menu");
+    expect(menuEl).not.toBeNull();
+    await fireEvent(menuEl!, new Event("pointerdown", { bubbles: true }));
+    await tick();
+    // A click inside the menu must not dismiss it (only item selection does).
+    expect(document.querySelector(".context-menu")).not.toBeNull();
+  });
+
+  it("closes the menu on window scroll (UI-8)", async () => {
+    docs.openFile("/a.md", "a");
+    const { container } = renderBar();
+    await tick();
+    await openMenu(container);
+    expect(document.querySelector(".context-menu")).not.toBeNull();
+    await fireEvent.scroll(window);
+    await tick();
+    expect(document.querySelector(".context-menu")).toBeNull();
+  });
+
+  it("closes the menu on window resize (UI-8)", async () => {
+    docs.openFile("/a.md", "a");
+    const { container } = renderBar();
+    await tick();
+    await openMenu(container);
+    expect(document.querySelector(".context-menu")).not.toBeNull();
+    await fireEvent(window, new Event("resize"));
+    await tick();
+    expect(document.querySelector(".context-menu")).toBeNull();
+  });
 });
