@@ -7,7 +7,8 @@
  *       возвращает новый полный текст документа и новое выделение. Это
  *       позволяет юнит-тестировать каждое преобразование (SENAR-правило 4).
  *   (б) CM6 Command-обёртки — читают текущее выделение из state, применяют
- *       чистую функцию и диспатчат транзакцию с корректным новым выделением.
+ *       чистую функцию и диспатчат МИНИМАЛЬНЫЙ changeset (только изменённый
+ *       диапазон) с корректным новым выделением.
  *
  * Inline-разметка:
  *   - bold:        `**…**`
@@ -17,6 +18,14 @@
  *   - code-fence:  строки ``` до и после выделения (для многострочного блока)
  *
  * Toggle: повторное применение к уже обёрнутому выделению снимает обёртку.
+ *
+ * Различение «уже обёрнуто» vs «соседний маркер» (ретро-ревью D1/D2):
+ *   - симметричные маркеры (`*`, `**`, `` ` ``) считают длину РУНА маркерного
+ *     символа вплотную к выделению. Снятие валидно лишь когда руна — цельная
+ *     обёртка ровно этого маркера (учёт чётности: один `*` из `**` НЕ является
+ *     italic-обёрткой);
+ *   - асимметричные маркеры (`<u>`/`</u>`, `(`/`)`) сравнивают символы по обе
+ *     стороны напрямую.
  *
  * Решение по ПУСТОМУ выделению (from === to):
  *   - inline-обёртки вставляют пару маркеров и ставят каретку МЕЖДУ ними,
@@ -42,6 +51,44 @@ export interface FormatRange {
 const FENCE = "```";
 
 /**
+ * Длина руна символа `ch`, заканчивающегося В позиции `end` (т.е. символы
+ * `text[end-1]`, `text[end-2]`, … равные `ch`).
+ */
+function runBefore(text: string, end: number, ch: string): number {
+  let n = 0;
+  let i = end - 1;
+  while (i >= 0 && text[i] === ch) {
+    n++;
+    i--;
+  }
+  return n;
+}
+
+/**
+ * Длина руна символа `ch`, начинающегося В позиции `start` (символы
+ * `text[start]`, `text[start+1]`, … равные `ch`).
+ */
+function runAfter(text: string, start: number, ch: string): number {
+  let n = 0;
+  let i = start;
+  while (i < text.length && text[i] === ch) {
+    n++;
+    i++;
+  }
+  return n;
+}
+
+/** Маркер симметричен, если open === close и состоит из одного повторяющегося символа. */
+function isSymmetricMarker(open: string, close: string): boolean {
+  if (open !== close || open.length === 0) return false;
+  const ch = open[0];
+  for (let i = 1; i < open.length; i++) {
+    if (open[i] !== ch) return false;
+  }
+  return true;
+}
+
+/**
  * Обернуть выделение `[from, to)` парой `open`/`close` либо снять обёртку,
  * если она уже присутствует (toggle).
  *
@@ -49,7 +96,9 @@ const FENCE = "```";
  *   1. Маркеры ВКЛЮЧЕНЫ в выделение: текст выделения начинается на `open`
  *      и заканчивается на `close`.
  *   2. Маркеры ВОКРУГ выделения: непосредственно перед `from` стоит `open`,
- *      а сразу после `to` — `close`.
+ *      а сразу после `to` — `close`. Для симметричных маркеров дополнительно
+ *      проверяется чётность руна, чтобы не спутать слой italic с частью bold
+ *      (ретро-ревью D1).
  *
  * При снятии выделение охватывает развёрнутый текст; при обёртке — исходный
  * текст без маркеров. Пустое выделение → каретка между вставленными маркерами.
@@ -62,12 +111,18 @@ export function toggleWrap(
   close: string,
 ): FormatRange {
   const selected = text.slice(from, to);
+  const symmetric = isSymmetricMarker(open, close);
 
   // Случай 1: маркеры включены в выделение.
+  // Для симметричных маркеров не считаем выделение цельной обёрткой, если оно
+  // лишь начинается и заканчивается маркером, но между ними — другой маркер
+  // того же символа (например '**x** and **y**'): требуем, чтобы это была
+  // именно непрерывная обёртка (ретро-ревью D2).
   if (
     selected.length >= open.length + close.length &&
     selected.startsWith(open) &&
-    selected.endsWith(close)
+    selected.endsWith(close) &&
+    isWholeWrap(selected, open, close, symmetric)
   ) {
     const inner = selected.slice(open.length, selected.length - close.length);
     const next = text.slice(0, from) + inner + text.slice(to);
@@ -75,12 +130,7 @@ export function toggleWrap(
   }
 
   // Случай 2: маркеры непосредственно вокруг выделения.
-  if (
-    from - open.length >= 0 &&
-    to + close.length <= text.length &&
-    text.slice(from - open.length, from) === open &&
-    text.slice(to, to + close.length) === close
-  ) {
+  if (isWrappedAround(text, from, to, open, close, symmetric)) {
     const next =
       text.slice(0, from - open.length) +
       selected +
@@ -96,6 +146,66 @@ export function toggleWrap(
 }
 
 /**
+ * Является ли `selected` цельной обёрткой `open…close` (а не двумя соседними
+ * обёртками). Для симметричных маркеров отвергаем случай, когда внутреннее
+ * содержимое само начинается/заканчивается тем же маркерным символом так, что
+ * выделение распадается на несколько обёрток ('**x** and **y**').
+ */
+function isWholeWrap(
+  selected: string,
+  open: string,
+  close: string,
+  symmetric: boolean,
+): boolean {
+  if (!symmetric) return true;
+  const ch = open[0];
+  const inner = selected.slice(open.length, selected.length - close.length);
+  // Внутренность не должна вплотную примыкать к маркеру тем же символом —
+  // иначе руна на границе длиннее маркера и это не цельная обёртка.
+  if (inner.length > 0 && (inner[0] === ch || inner[inner.length - 1] === ch)) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Окружено ли выделение `[from, to)` маркерами `open`/`close` вплотную.
+ * Для симметричных маркеров используется подсчёт руна с учётом чётности:
+ * снятие валидно только если руна слева и справа — целое число обёрток данного
+ * маркера (`(run - len) % (len) === 0` сводится для одиночного символа к тому,
+ * что лишних символов того же маркера не остаётся «не парными»).
+ */
+function isWrappedAround(
+  text: string,
+  from: number,
+  to: number,
+  open: string,
+  close: string,
+  symmetric: boolean,
+): boolean {
+  if (from - open.length < 0 || to + close.length > text.length) return false;
+
+  if (!symmetric) {
+    return (
+      text.slice(from - open.length, from) === open &&
+      text.slice(to, to + close.length) === close
+    );
+  }
+
+  const ch = open[0];
+  const len = open.length;
+  const left = runBefore(text, from, ch);
+  const right = runAfter(text, to, ch);
+  if (left < len || right < len) return false;
+  // Руна должна быть «совместима» с маркером: после снятия len символов
+  // остаток руны не должен быть невалидным «висячим» маркером.
+  // Для одиночного символа (len=1): руна чётной длины — это пары (bold),
+  // снимать один italic-маркер нельзя; руна нечётной длины содержит italic.
+  // Общее правило: (left - len) и (right - len) должны быть чётными.
+  return (left - len) % 2 === 0 && (right - len) % 2 === 0;
+}
+
+/**
  * Обернуть/снять симметричным inline-маркером (`**`, `*`, `` ` ``).
  * Частный случай `toggleWrap` с равными open/close.
  */
@@ -108,48 +218,94 @@ export function toggleInlineWrap(
   return toggleWrap(text, from, to, marker, marker);
 }
 
+/** Является ли строка открывающим ограждением (``` + опциональная info-string). */
+function isFenceOpen(line: string): boolean {
+  return line.startsWith(FENCE);
+}
+
+/** Является ли строка закрывающим ограждением (только ``` и пробелы). */
+function isFenceClose(line: string): boolean {
+  return line.startsWith(FENCE) && line.slice(FENCE.length).trim() === "";
+}
+
 /**
  * Обернуть выделенные строки в ограждение ``` (открывающая и закрывающая —
  * на отдельных строках) либо снять его (toggle).
  *
- * Выделение расширяется до целых строк. Распознавание «уже в fence»: строка
- * непосредственно над расширенным выделением равна `` ``` ``, и строка
- * непосредственно под ним — тоже.
+ * Выделение расширяется до целых строк. Снятие (ретро-ревью D3/D4):
+ *   - сканируем НАРУЖУ от строк выделения: вверх — до открывающего ограждения
+ *     (``` с возможной info-string), вниз — до закрывающего (``` ).
+ *   - если объемлющее ограждение найдено, удаляем обе его строки, сохраняя
+ *     содержимое.
  */
 export function toggleCodeFence(
   text: string,
   from: number,
   to: number,
 ): FormatRange {
-  // Расширяем границы выделения до начала/конца строк.
-  const lineStart = text.lastIndexOf("\n", from - 1) + 1;
-  let lineEnd = text.indexOf("\n", to);
-  if (lineEnd === -1) lineEnd = text.length;
+  const lines = text.split("\n");
 
-  const before = text.slice(0, lineStart);
-  const block = text.slice(lineStart, lineEnd);
-  const after = text.slice(lineEnd);
-
-  // Проверяем, окружён ли блок строками-ограждениями.
-  // `before` оканчивается на "```\n", `after` начинается с "\n```".
-  const fencedAbove =
-    before === FENCE + "\n" || before.endsWith("\n" + FENCE + "\n");
-  const fencedBelow =
-    after === "\n" + FENCE || after.startsWith("\n" + FENCE + "\n");
-
-  if (fencedAbove && fencedBelow) {
-    // Снять ограждение: убрать строку ``` сверху и снизу.
-    const newBefore = before.slice(0, before.length - (FENCE.length + 1));
-    const newAfter = after.slice(FENCE.length + 1);
-    const next = newBefore + block + newAfter;
-    const newFrom = newBefore.length;
-    return { text: next, from: newFrom, to: newFrom + block.length };
+  // Смещения начала каждой строки в исходном тексте.
+  const lineStart: number[] = [];
+  {
+    let acc = 0;
+    for (const ln of lines) {
+      lineStart.push(acc);
+      acc += ln.length + 1; // +1 за '\n'
+    }
   }
 
-  // Обернуть в ограждение.
-  const wrapped = FENCE + "\n" + block + "\n" + FENCE;
-  const next = before + wrapped + after;
-  const newFrom = before.length + FENCE.length + 1;
+  // Индексы строк, затронутых выделением.
+  const lineEndExclusive = (i: number): number =>
+    lineStart[i] + lines[i].length;
+  let selStartLine = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lineStart[i] <= from) selStartLine = i;
+    else break;
+  }
+  let selEndLine = selStartLine;
+  for (let i = selStartLine; i < lines.length; i++) {
+    selEndLine = i;
+    if (lineEndExclusive(i) >= to) break;
+  }
+
+  // Поиск объемлющего ограждения наружу.
+  let openLine = -1;
+  for (let i = selStartLine - 1; i >= 0; i--) {
+    if (isFenceOpen(lines[i])) {
+      openLine = i;
+      break;
+    }
+  }
+  let closeLine = -1;
+  for (let i = selEndLine + 1; i < lines.length; i++) {
+    if (isFenceClose(lines[i])) {
+      closeLine = i;
+      break;
+    }
+  }
+
+  if (openLine !== -1 && closeLine !== -1) {
+    // Снять ограждение: удалить строки openLine и closeLine.
+    const kept = lines.filter((_, i) => i !== openLine && i !== closeLine);
+    const next = kept.join("\n");
+    // Новое выделение — содержимое, ранее бывшее между ограждениями.
+    const contentLines = lines.slice(openLine + 1, closeLine);
+    const before = lines.slice(0, openLine).join("\n");
+    const newFrom = before.length + (openLine > 0 ? 1 : 0);
+    const content = contentLines.join("\n");
+    return { text: next, from: newFrom, to: newFrom + content.length };
+  }
+
+  // Обернуть выделенные строки в ограждение.
+  const block = lines.slice(selStartLine, selEndLine + 1).join("\n");
+  const head = lines.slice(0, selStartLine);
+  const tail = lines.slice(selEndLine + 1);
+  const wrappedLines = [...head, FENCE, block, FENCE, ...tail];
+  const next = wrappedLines.join("\n");
+
+  const beforeBlock = [...head, FENCE].join("\n");
+  const newFrom = beforeBlock.length + 1; // +1 за '\n' перед block
   return { text: next, from: newFrom, to: newFrom + block.length };
 }
 
@@ -157,11 +313,10 @@ export function toggleCodeFence(
 
 /**
  * Универсальная обёртка: применяет чистую функцию `fn` к главному выделению
- * текущего state и диспатчит транзакцию с новым текстом и выделением.
- *
- * Чистые функции работают над полным текстом документа, поэтому здесь мы
- * заменяем весь документ результатом и переустанавливаем выделение. Для
- * редактора заметок (плоский Markdown) это корректно и предсказуемо.
+ * текущего state и диспатчит МИНИМАЛЬНУЮ транзакцию, затрагивающую только
+ * изменённый диапазон (общий префикс/суффикс с исходным документом
+ * отбрасываются). Это сохраняет undo-историю на больших документах
+ * (ретро-ревью R1).
  */
 function applyFormat(
   fn: (text: string, from: number, to: number) => FormatRange,
@@ -171,8 +326,29 @@ function applyFormat(
     const range = state.selection.main;
     const text = state.doc.toString();
     const result = fn(text, range.from, range.to);
+
+    // Вычисляем минимальный изменённый диапазон: общий префикс и суффикс.
+    let start = 0;
+    const maxPrefix = Math.min(text.length, result.text.length);
+    while (start < maxPrefix && text[start] === result.text[start]) start++;
+
+    let endOld = text.length;
+    let endNew = result.text.length;
+    while (
+      endOld > start &&
+      endNew > start &&
+      text[endOld - 1] === result.text[endNew - 1]
+    ) {
+      endOld--;
+      endNew--;
+    }
+
     view.dispatch({
-      changes: { from: 0, to: state.doc.length, insert: result.text },
+      changes: {
+        from: start,
+        to: endOld,
+        insert: result.text.slice(start, endNew),
+      },
       selection: { anchor: result.from, head: result.to },
       scrollIntoView: true,
       userEvent: "input.format",
