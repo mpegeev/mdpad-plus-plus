@@ -95,7 +95,7 @@
     position: fixed;
     top: var(--toolbar-y, 0);
     left: var(--toolbar-x, 0);
-    z-index: 50;
+    z-index: var(--z-floating-toolbar);
 
     display: flex;
     align-items: center;
@@ -156,6 +156,7 @@
   .floating-toolbar__btn:focus-visible {
     outline: none;
     color: var(--fg-primary);
-    box-shadow: 0 0 0 2px var(--accent-muted);
+    /* Кольцо фокуса: геометрия из токена --focus-ring-width, цвет — accent-muted. */
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--accent-muted);
   }
 </style>

@@ -55,9 +55,14 @@
   let toolbarVisible = $state(false);
   let toolbarPosition = $state<ToolbarPosition>({ x: 0, y: 0 });
 
-  // Estimated toolbar size for clamping before the element is measured. Matches
-  // the rendered plank (5 buttons × 24px + separator + paddings/gaps); the
-  // exact pixels are best-effort — clamp only needs an approximate footprint.
+  // ОЦЕНКА размера панели для clamp до того, как элемент измерен в layout.
+  // Соответствует текущей раскладке (5 кнопок × 24px + разделитель +
+  // padding/gap). Значение — приблизительное: clamp нужен лишь грубый
+  // footprint, чтобы панель не уезжала за край viewport.
+  //
+  // ВНИМАНИЕ: при изменении НАБОРА кнопок во FloatingToolbar (добавили/убрали
+  // кнопку или разделитель) эти числа надо синхронизировать вручную — это
+  // хардкод-оценка, а не фактический замер offsetWidth/Height. См. MDP-16.
   const TOOLBAR_SIZE = { width: 172, height: 32 };
 
   const visibility = new ToolbarVisibility({
@@ -102,6 +107,11 @@
   function handleViewReady(view: EditorView | null) {
     editorView = view;
     if (!view) {
+      // Смена/закрытие документа: гасим панель синхронно и атомарно. blurred()
+      // обновит машину и вызовет onChange только если она считала панель
+      // видимой; дополнительно сбрасываем реактивный флаг напрямую, чтобы
+      // панель не «зависла» видимой между перемонтированиями редактора (LOW [D]).
+      toolbarVisible = false;
       visibility.blurred();
     }
   }
