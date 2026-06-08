@@ -55,7 +55,18 @@
  * чей `from` совпадает с активным, поэтому его виджет не строится и пользователь
  * видит исходный текст. Переключение — только явными действиями: клик по
  * виджету, F2 (toggle), Esc (вернуть рендер). Перемещение каретки активный блок
- * НЕ меняет — авто-ререндер при потере фокуса вынесен в MDP-14.
+ * НЕ меняет.
+ *
+ * ## Авто-ререндер при потере фокуса / Esc (MDP-14)
+ *
+ * Когда активный raw-блок теряет фокус (редактор получает DOM-событие `blur`),
+ * он автоматически возвращается в рендер: обработчик диспатчит `setRawBlock.of(null)`.
+ * Это `rawBlockBlurHandler`. Esc уже покрыт командой `escapeRawBlock` и НЕ трогает
+ * selection — каретка остаётся на своей позиции после возврата к рендеру.
+ *
+ * Чтобы переход render↔raw не «прыгал», `.cm-md-block` получает плавный fade по
+ * `opacity` (`--motion-fast`). Высоту НЕ анимируем (запрет DESIGN.md), а её скачок
+ * сглаживает `estimatedHeight` виджета (оценка до измерения) + fade появления.
  */
 
 import { EditorView, WidgetType, Decoration, keymap } from "@codemirror/view";
@@ -366,6 +377,29 @@ const rawBlockClickHandler = EditorView.domEventHandlers({
 });
 
 /**
+ * Потеря фокуса редактором (MDP-14): если есть активный raw-блок, возвращаем его
+ * в рендер — `setRawBlock.of(null)`. Поведение «потерял фокус → отрендерился».
+ *
+ * `view.dom.contains(event.relatedTarget)` отсеивает «внутренние» blur (фокус ушёл
+ * к другому элементу самого редактора, например к скроллбару) — в этом случае
+ * содержательной потери фокуса нет, блок остаётся raw. Если `relatedTarget` вне
+ * редактора или `null` (фокус ушёл наружу/в никуда) — ререндерим.
+ *
+ * Возвращаем `false`: blur — не «команда», мы не «поглощаем» событие, только
+ * реагируем побочным эффектом (диспатч). Сам диспатч безопасен: к моменту blur
+ * view ещё жив (destroy снимает DOM-listeners до уничтожения состояния).
+ */
+const rawBlockBlurHandler = EditorView.domEventHandlers({
+  blur(event, view) {
+    if (view.state.field(rawBlockField) === null) return false;
+    const next = event.relatedTarget;
+    if (next instanceof Node && view.dom.contains(next)) return false;
+    view.dispatch({ effects: setRawBlock.of(null) });
+    return false;
+  },
+});
+
+/**
  * Типографика отрендеренного блока. Всё через дизайн-токены (DESIGN.md):
  * цвета не хардкодятся, отступы кратны 4px (`--space-half` — задокументированное
  * исключение), радиусы из `--radius-*`. Тело — `--font-prose`; код — `--font-mono`.
@@ -379,6 +413,10 @@ const inlineRenderTheme = EditorView.baseTheme({
     fontSize: "var(--fs-md)",
     lineHeight: "var(--lh-prose)",
     color: "var(--fg-primary)",
+    // Плавный fade появления/исчезновения виджета при переходе render↔raw
+    // (MDP-14). Анимируем ТОЛЬКО opacity — height/all запрещены DESIGN.md, иначе
+    // были бы «прыжки» высоты. Длительность/кривая — из motion-токенов.
+    transition: "opacity var(--motion-fast) var(--ease-out)",
   },
   ".cm-md-block > :first-child": { marginTop: "0" },
   ".cm-md-block > :last-child": { marginBottom: "0" },
@@ -485,6 +523,7 @@ const inlineRenderTheme = EditorView.baseTheme({
  * читает значение поля в `create`/`update` (CM6 инициализирует поля по порядку).
  * `rawBlockKeymap`/`rawBlockClickHandler` добавлены раньше основного keymap из
  * `Editor.svelte`, поэтому F2/Esc/клик имеют приоритет над дефолтными биндингами.
+ * `rawBlockBlurHandler` (MDP-14) возвращает блок в рендер при потере фокуса.
  */
 export function inlineRender(): Extension {
   return [
@@ -492,6 +531,7 @@ export function inlineRender(): Extension {
     inlineRenderField,
     rawBlockKeymap,
     rawBlockClickHandler,
+    rawBlockBlurHandler,
     inlineRenderTheme,
   ];
 }
