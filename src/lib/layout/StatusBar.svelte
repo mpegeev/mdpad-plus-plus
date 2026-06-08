@@ -1,6 +1,13 @@
 <script lang="ts">
   import Icon from "$lib/ui/Icon.svelte";
-  import { getActive, setWrap } from "$lib/stores/documents.svelte";
+  import type { IconName } from "$lib/ui/icons";
+  import {
+    getActive,
+    setWrap,
+    setMode,
+    type DocumentMode,
+  } from "$lib/stores/documents.svelte";
+  import { cycleMode } from "$lib/editor/mode";
 
   // Other segments (cursor position, encoding, EOL) remain static placeholders
   // wired in later tasks. The wrap toggle (MDP-10) reads/writes the active
@@ -11,6 +18,23 @@
   function toggleWrap() {
     if (!active) return;
     setWrap(active.id, !active.wrap);
+  }
+
+  // Render-mode toggle (MDP-15). A single button cycles the active document's
+  // mode rendered → mixed → raw → rendered (same order as the Ctrl+E shortcut);
+  // the three icons make the available modes visible, with the active one
+  // highlighted. The active mode is also announced via the button aria-label.
+  const MODES: { mode: DocumentMode; icon: IconName; label: string }[] = [
+    { mode: "rendered", icon: "eye", label: "Рендер" },
+    { mode: "mixed", icon: "panel-top", label: "Смешанный" },
+    { mode: "raw", icon: "code", label: "Raw" },
+  ];
+
+  const mode = $derived<DocumentMode>(active?.mode ?? "rendered");
+
+  function toggleMode() {
+    if (!active) return;
+    setMode(active.id, cycleMode(active.mode));
   }
 </script>
 
@@ -25,6 +49,26 @@
   </div>
 
   <div class="statusbar__right">
+    <button
+      class="status-seg status-seg--btn status-seg--mode"
+      type="button"
+      aria-label={`Режим отображения: ${
+        MODES.find((m) => m.mode === mode)?.label
+      } (переключить, Ctrl+E)`}
+      disabled={!active}
+      onclick={toggleMode}
+    >
+      {#each MODES as m (m.mode)}
+        <span
+          class="mode-ind"
+          class:mode-ind--active={m.mode === mode}
+          data-mode={m.mode}
+          aria-current={m.mode === mode ? "true" : undefined}
+        >
+          <Icon name={m.icon} size={11} />
+        </span>
+      {/each}
+    </button>
     <button
       class="status-seg status-seg--btn"
       type="button"
@@ -93,6 +137,24 @@
   }
   .status-seg--btn:disabled {
     cursor: default;
+  }
+
+  /* Render-mode toggle: three icon indicators in one button (MDP-15). */
+  .status-seg--mode {
+    gap: var(--space-half);
+  }
+  .mode-ind {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--space-half);
+    border-radius: var(--radius-sm);
+    color: var(--fg-tertiary);
+    transition: color var(--motion-fast) var(--ease-out);
+  }
+  .mode-ind--active {
+    color: var(--fg-primary);
+    background: var(--accent-muted);
   }
 
   .status-seg--state {

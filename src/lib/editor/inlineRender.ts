@@ -65,6 +65,7 @@ import {
   StateEffect,
   RangeSetBuilder,
   MapMode,
+  EditorState,
 } from "@codemirror/state";
 import type { Extension } from "@codemirror/state";
 import MarkdownIt from "markdown-it";
@@ -286,11 +287,19 @@ function buildDecorations(
  */
 export const inlineRenderField = StateField.define<DecorationSet>({
   create(state) {
-    return buildDecorations(state.doc.toString(), state.field(rawBlockField));
+    // `rawBlockField` всегда добавляется вместе с этим полем (см. `inlineRender`),
+    // поэтому в норме присутствует. Но при переключении режима (MDP-15) оба поля
+    // могут сниматься в одной reconfigure-транзакции, и порядок демонтажа полей
+    // CM6 не гарантирован — читаем нетребовательной формой с фолбэком на `null`,
+    // чтобы не упасть на «Field is not present».
+    return buildDecorations(
+      state.doc.toString(),
+      state.field(rawBlockField, false) ?? null,
+    );
   },
   update(deco, tr) {
-    const rawNew = tr.state.field(rawBlockField);
-    const rawOld = tr.startState.field(rawBlockField);
+    const rawNew = tr.state.field(rawBlockField, false) ?? null;
+    const rawOld = tr.startState.field(rawBlockField, false) ?? null;
     if (!tr.docChanged && rawNew === rawOld) return deco;
     return buildDecorations(tr.state.doc.toString(), rawNew);
   },
@@ -494,4 +503,52 @@ export function inlineRender(): Extension {
     rawBlockClickHandler,
     inlineRenderTheme,
   ];
+}
+
+// ---------------------------------------------------------------------------
+// Mixed-режим: блок под кареткой автоматически raw (MDP-15)
+// ---------------------------------------------------------------------------
+
+/**
+ * Расширение mixed-режима. В отличие от `rendered`, где блок становится raw
+ * только явным действием (F2/клик), в mixed активный raw-блок **следует за
+ * кареткой**: блок, в котором находится `head`, всегда показан как сырой
+ * Markdown, остальные отрендерены.
+ *
+ * Реализация — `EditorState.transactionExtender`, а НЕ асинхронный dispatch из
+ * `updateListener`. Причина: extender выполняется при построении транзакции и
+ * может дополнить её эффектом `setRawBlock` в той же транзакции, поэтому
+ * `rawBlockField` обновляется синхронно вместе с селекцией — без мигания
+ * (рендер → raw в два кадра) и без рекурсивного повторного dispatch.
+ *
+ * Алгоритм: если в транзакции изменилась селекция или документ, вычисляем блок
+ * под новой `head` (в координатах нового документа) и, если его `from` отличается
+ * от текущего активного, добавляем `setRawBlock.of(<from>)`. Каретка вне любого
+ * блока (пустая строка между блоками, пустой документ) → `setRawBlock.of(null)`,
+ * т.е. все блоки рендерятся. Если транзакция уже несёт собственный `setRawBlock`
+ * (F2/клик/Esc) — мы его не трогаем, чтобы не конфликтовать с явными действиями.
+ *
+ * Добавляется ПОВЕРХ `inlineRender()` (которое уже даёт `rawBlockField` и набор
+ * декораций) — отдельной фабрикой, чтобы Editor мог включать/выключать слежение
+ * за кареткой через Compartment, не пересоздавая остальной inline-рендер.
+ */
+export function mixedModeExtension(): Extension {
+  return EditorState.transactionExtender.of((tr) => {
+    // Реагируем только на изменение селекции или документа: скролл и прочие
+    // транзакции набор raw-блока не трогают.
+    if (!tr.selection && !tr.docChanged) return null;
+    // Не вмешиваемся, если транзакция уже задаёт активный блок явно
+    // (F2/Esc/двойной клик кладут собственный setRawBlock).
+    for (const effect of tr.effects) {
+      if (effect.is(setRawBlock)) return null;
+    }
+    // `tr.newDoc`/`tr.newSelection` — состояние ПОСЛЕ применения транзакции,
+    // в координатах нового документа (то же, что увидит rawBlockField).
+    const head = tr.newSelection.main.head;
+    const block = findBlockAt(tr.newDoc.toString(), head);
+    const nextRaw = block ? block.from : null;
+    const currentRaw = tr.startState.field(rawBlockField);
+    if (nextRaw === currentRaw) return null;
+    return { effects: setRawBlock.of(nextRaw) };
+  });
 }

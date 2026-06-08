@@ -83,3 +83,76 @@ describe("StatusBar — line wrap toggle", () => {
     expect(btn.getAttribute("aria-pressed")).toBe("false");
   });
 });
+
+/**
+ * MDP-15 — StatusBar render-mode toggle.
+ *
+ * The button cycles the active document's mode rendered → mixed → raw →
+ * rendered. Three icons are present (eye/panel-top/code) with the active one
+ * highlighted via `aria-current`.
+ */
+
+function modeButton(container: HTMLElement): HTMLButtonElement {
+  const btn = container.querySelector<HTMLButtonElement>(
+    "button.status-seg--mode",
+  );
+  expect(btn).not.toBeNull();
+  return btn!;
+}
+
+function activeModeIndicator(container: HTMLElement): string | null {
+  const el = container.querySelector<HTMLElement>(
+    ".mode-ind[aria-current='true']",
+  );
+  return el?.getAttribute("data-mode") ?? null;
+}
+
+describe("StatusBar — render mode toggle (MDP-15)", () => {
+  it("disabled when there is no active document", async () => {
+    const { container } = render(StatusBar);
+    await tick();
+    expect(modeButton(container).disabled).toBe(true);
+  });
+
+  it("renders all three mode icons (rendered/mixed/raw)", async () => {
+    docs.openFile("/a.md", "a");
+    const { container } = render(StatusBar);
+    await tick();
+    const modes = Array.from(
+      container.querySelectorAll<HTMLElement>(".mode-ind"),
+    ).map((el) => el.getAttribute("data-mode"));
+    expect(modes).toEqual(["rendered", "mixed", "raw"]);
+  });
+
+  it("highlights the active document's current mode", async () => {
+    const id = docs.openFile("/a.md", "a"); // defaults to rendered
+    const { container } = render(StatusBar);
+    await tick();
+    expect(activeModeIndicator(container)).toBe("rendered");
+
+    docs.setMode(id, "mixed");
+    await tick();
+    expect(activeModeIndicator(container)).toBe("mixed");
+  });
+
+  it("click cycles the mode rendered → mixed → raw → rendered in the store", async () => {
+    const id = docs.openFile("/a.md", "a");
+    expect(docs.getActive()?.mode).toBe("rendered");
+
+    const { container } = render(StatusBar);
+    await tick();
+    const btn = modeButton(container);
+
+    await fireEvent.click(btn);
+    await tick();
+    expect(docs.getDocuments().find((d) => d.id === id)?.mode).toBe("mixed");
+
+    await fireEvent.click(btn);
+    await tick();
+    expect(docs.getDocuments().find((d) => d.id === id)?.mode).toBe("raw");
+
+    await fireEvent.click(btn);
+    await tick();
+    expect(docs.getDocuments().find((d) => d.id === id)?.mode).toBe("rendered");
+  });
+});

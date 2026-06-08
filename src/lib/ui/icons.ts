@@ -86,6 +86,25 @@ export const icons = {
     ["path", { d: "M18 6 6 18" }],
     ["path", { d: "m6 6 12 12" }],
   ],
+  // Render-mode toggle icons (MDP-15): eye = rendered, panel-top = mixed,
+  // code = raw.
+  eye: [
+    [
+      "path",
+      {
+        d: "M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0",
+      },
+    ],
+    ["circle", { cx: "12", cy: "12", r: "3" }],
+  ],
+  "panel-top": [
+    ["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2" }],
+    ["path", { d: "M3 9h18" }],
+  ],
+  code: [
+    ["path", { d: "m16 18 6-6-6-6" }],
+    ["path", { d: "m8 6-6 6 6 6" }],
+  ],
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof icons;

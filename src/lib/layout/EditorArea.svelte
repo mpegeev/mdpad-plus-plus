@@ -6,7 +6,9 @@
     getActive,
     updateBuffer,
     createUntitled,
+    setMode,
   } from "$lib/stores/documents.svelte";
+  import { cycleMode } from "$lib/editor/mode";
 
   // The active document comes from the shared store (MDP-8). Editing the
   // buffer flows back via updateBuffer; if no document is open we show the
@@ -17,14 +19,19 @@
   // falls back to `false` when no document is active.
   const lineWrap = $derived(active?.wrap ?? false);
 
-  // Inline block rendering (MDP-12). The per-document `mode` drives it: only
-  // `raw` shows the plain Markdown source; `rendered`/`mixed` open rendered.
-  // The mode toggle UI is MDP-15; here we just honour the existing field
-  // (defaults to `rendered`, so documents open rendered).
-  const renderBlocks = $derived(active?.mode !== "raw");
+  // Render mode (MDP-15) is per-document; defaults to `rendered`. The Editor
+  // honours all three modes (rendered / mixed / raw) at runtime.
+  const mode = $derived(active?.mode ?? "rendered");
 
   function onCreate() {
     createUntitled();
+  }
+
+  // Ctrl+E inside the editor advances the active document's mode through the
+  // cycle. Handled in the Editor keymap (focus-scoped) and routed back here.
+  function onCycleMode() {
+    if (!active) return;
+    setMode(active.id, cycleMode(active.mode));
   }
 </script>
 
@@ -35,7 +42,8 @@
         doc={active.buffer}
         onDocChange={(next) => updateBuffer(active.id, next)}
         {lineWrap}
-        inlineRender={renderBlocks}
+        {mode}
+        {onCycleMode}
       />
     {/key}
   </section>
