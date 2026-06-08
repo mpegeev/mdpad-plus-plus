@@ -24,6 +24,7 @@
 
   import { untrack } from "svelte";
   import { EditorState, Compartment } from "@codemirror/state";
+  import type { Extension } from "@codemirror/state";
   import {
     EditorView,
     keymap,
@@ -31,11 +32,19 @@
     highlightActiveLine,
     highlightActiveLineGutter,
   } from "@codemirror/view";
+  import type { Command } from "@codemirror/view";
   import { markdown } from "@codemirror/lang-markdown";
   import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
   import { searchKeymap } from "@codemirror/search";
   import { editorTheme, editorSyntaxHighlight } from "./theme";
-  import { inlineRender as inlineRenderExt } from "./inlineRender";
+  import {
+    inlineRender as inlineRenderExt,
+    mixedModeExtension,
+    setRawBlock,
+    rawBlockField,
+    findBlockAt,
+  } from "./inlineRender";
+  import type { DocumentMode } from "$lib/stores/documents.svelte";
 
   interface Props {
     doc: string;
@@ -44,12 +53,22 @@
     /** Soft line wrap. Per-document (MDP-10); toggled from the status bar. */
     lineWrap?: boolean;
     /**
-     * Inline block rendering (MDP-12). When `true`, every top-level Markdown
-     * block is replaced by its rendered HTML widget — the document opens
-     * "as Typora". Read once at mount (like `readOnly`); switching it at
-     * runtime is the mode-toggle concern of MDP-15.
+     * Render mode (MDP-15). Per-document, switched at runtime through a
+     * Compartment (no EditorView re-creation):
+     *   - `rendered` — inline-render active; a block becomes raw only on
+     *     explicit F2 / double-click (MDP-12/13 behaviour).
+     *   - `mixed`    — inline-render plus auto-follow: the block under the
+     *     caret is shown raw, the others rendered.
+     *   - `raw`      — no decorations; the whole document is plain Markdown.
      */
-    inlineRender?: boolean;
+    mode?: DocumentMode;
+    /**
+     * Invoked when the user presses Ctrl+E inside the editor. The parent maps
+     * it to `setMode(active.id, cycleMode(active.mode))`. Handled here (in the
+     * editor keymap) rather than via a global listener so the shortcut only
+     * fires when the editor is focused and composes with CM6 key handling.
+     */
+    onCycleMode?: () => void;
   }
 
   const {
@@ -57,7 +76,8 @@
     onDocChange,
     readOnly = false,
     lineWrap = false,
-    inlineRender = true,
+    mode = "rendered",
+    onCycleMode,
   }: Props = $props();
 
   let hostEl: HTMLDivElement | undefined = $state();
@@ -77,20 +97,73 @@
   // is already initialised with the current `lineWrap`).
   let appliedWrap: boolean | undefined;
 
+  // ----- Render mode (MDP-15) -----
+  // A Compartment lets us swap the inline-render extension at runtime without
+  // re-creating the EditorView (scroll/selection/history preserved).
+  const modeCompartment = new Compartment();
+
+  function modeExtension(m: DocumentMode): Extension {
+    switch (m) {
+      case "rendered":
+        return inlineRenderExt();
+      case "mixed":
+        // inlineRender provides rawBlockField + decorations; mixedMode adds the
+        // caret-follow transactionExtender on top.
+        return [inlineRenderExt(), mixedModeExtension()];
+      case "raw":
+        // No decorations → the whole document stays plain Markdown.
+        return [];
+    }
+  }
+
+  // Last mode actually applied to the live view — lets the reconfigure effect
+  // skip the redundant dispatch right after mount.
+  let appliedMode: DocumentMode | undefined;
+
+  const cycleModeCommand: Command = () => {
+    // Always swallow Ctrl+E so the default CM binding never fires while the
+    // editor owns the shortcut. Reads `onCycleMode` at call-time (a reactive
+    // `$props` getter), so the keymap captured once at mount always calls the
+    // current prop. No-op when no handler is wired (e.g. tests).
+    onCycleMode?.();
+    return true;
+  };
+
+  // When switching to `mixed`, the transactionExtender only fires on the next
+  // transaction — so make the block under the current caret raw immediately.
+  // When leaving `mixed`/`raw` for `rendered`, clear any active raw block so a
+  // stale block does not stay un-rendered. `rawBlockField` only exists while an
+  // inline-render extension is configured, so guard reads with a field check.
+  function syncRawBlockForMode(v: EditorView, m: DocumentMode): void {
+    const hasField = v.state.field(rawBlockField, false) !== undefined;
+    if (!hasField) return;
+    if (m === "mixed") {
+      const head = v.state.selection.main.head;
+      const block = findBlockAt(v.state.doc.toString(), head);
+      const next = block ? block.from : null;
+      if (v.state.field(rawBlockField) !== next) {
+        v.dispatch({ effects: setRawBlock.of(next) });
+      }
+    } else if (m === "rendered") {
+      if (v.state.field(rawBlockField) !== null) {
+        v.dispatch({ effects: setRawBlock.of(null) });
+      }
+    }
+  }
+
   // ----- Mount / unmount the EditorView -----
   // We intentionally read `doc` / `readOnly` via `untrack` so this effect runs
   // exactly once per host element. Re-creating the view on every prop change
   // would lose scroll position, selection and history. External `doc` updates
-  // are reflected by the second effect below. `readOnly` / `inlineRender` are
-  // read once at mount; making them reactive (a Compartment) belongs to the
-  // mode toggle (MDP-15), not here.
+  // are reflected by the second effect below. `readOnly` is read once at mount;
+  // `lineWrap` and `mode` live in Compartments so they reconfigure at runtime.
   $effect(() => {
     if (!hostEl) return;
 
     const initialDoc = untrack(() => doc);
     const initialReadOnly = untrack(() => readOnly);
     const initialWrap = untrack(() => lineWrap);
-    const initialInlineRender = untrack(() => inlineRender);
+    const initialMode = untrack(() => mode);
 
     const state = EditorState.create({
       doc: initialDoc,
@@ -101,7 +174,10 @@
         highlightActiveLineGutter(),
         history(),
         markdown(),
-        ...(initialInlineRender ? [inlineRenderExt()] : []),
+        modeCompartment.of(modeExtension(initialMode)),
+        // Ctrl+E (mode cycle) goes first so it has priority over the default
+        // binding (cursorLineEnd) — `cycleModeCommand` always returns true.
+        keymap.of([{ key: "Ctrl-e", run: cycleModeCommand }]),
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         editorTheme,
         editorSyntaxHighlight,
@@ -117,10 +193,15 @@
     const created = new EditorView({ state, parent: hostEl });
     view = created;
     appliedWrap = initialWrap;
+    appliedMode = initialMode;
+    // If we open straight into `mixed`, the block under the caret must be raw
+    // from the first frame (the extender only fires on later transactions).
+    syncRawBlockForMode(created, initialMode);
 
     return () => {
       created.destroy();
       appliedWrap = undefined;
+      appliedMode = undefined;
     };
   });
 
@@ -148,6 +229,20 @@
       effects: wrapCompartment.reconfigure(wrapExtension(on)),
     });
     appliedWrap = on;
+  });
+
+  // ----- Reflect `mode` prop into the view via Compartment reconfigure -----
+  // Swaps the inline-render extension without re-creating the EditorView, then
+  // syncs the active raw block so `mixed`/`rendered` look right immediately.
+  $effect(() => {
+    const m = mode;
+    if (!view) return;
+    if (m === appliedMode) return;
+    view.dispatch({
+      effects: modeCompartment.reconfigure(modeExtension(m)),
+    });
+    appliedMode = m;
+    syncRawBlockForMode(view, m);
   });
 </script>
 

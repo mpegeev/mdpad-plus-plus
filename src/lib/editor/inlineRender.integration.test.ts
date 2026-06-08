@@ -62,9 +62,11 @@ describe("inline-рендер: интеграция с EditorView", () => {
     await tick();
   });
 
-  it("inlineRender=false — блоки НЕ заменяются, виден сырой Markdown", async () => {
+  it("mode=raw — блоки НЕ заменяются, виден сырой Markdown", async () => {
+    // MDP-15: режим raw — прямой наследник прежнего `inlineRender=false`
+    // (декораций нет вовсе). Проп заменён на `mode` при переключении режимов.
     const { container } = render(Editor, {
-      props: { doc: MULTI_BLOCK, inlineRender: false },
+      props: { doc: MULTI_BLOCK, mode: "raw" },
     });
     await tick();
     const view = getView(container);
