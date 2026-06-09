@@ -13,7 +13,7 @@
   import type { EditorView } from "@codemirror/view";
   import { ToolbarVisibility } from "$lib/editor/toolbarVisibility";
   import type { ToolbarAction } from "$lib/editor/toolbarVisibility";
-  import { commandForAction } from "$lib/editor/format";
+  import { commandForAction, commandForHeading } from "$lib/editor/format";
   import {
     clampToolbarPosition,
     type ToolbarPosition,
@@ -135,6 +135,15 @@
     commandForAction(action)(view);
   }
 
+  function handleToolbarHeading(level: number) {
+    // MDP-18: установка уровня заголовка из dropdown через тот же путь, что и
+    // хоткеи Ctrl+0..6 (commandForHeading → чистый setHeadingLevel). Нет
+    // активного view → no-op (fail-closed).
+    const view = editorView;
+    if (!view) return;
+    commandForHeading(level)(view);
+  }
+
   $effect(() => {
     // Teardown the visibility machine's pending timer on unmount.
     return () => visibility.destroy();
@@ -160,6 +169,7 @@
       visible={toolbarVisible}
       position={toolbarPosition}
       onAction={handleToolbarAction}
+      onHeading={handleToolbarHeading}
       onMeasure={handleToolbarMeasure}
     />
   </section>

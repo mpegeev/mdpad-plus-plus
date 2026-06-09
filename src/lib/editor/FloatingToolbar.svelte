@@ -27,6 +27,11 @@
     /** Намерение форматирования. Проводка к командам — MDP-17. */
     onAction?: (action: ToolbarAction) => void;
     /**
+     * Выбор уровня заголовка из dropdown (MDP-18): 0 — параграф, 1..6 — H1..H6.
+     * Проводка к `commandForHeading` — в родителе (EditorArea).
+     */
+    onHeading?: (level: number) => void;
+    /**
      * Фактический размер смонтированной панели (MDP-48). Вызывается при монтаже
      * и при изменении размеров (ResizeObserver), чтобы родитель позиционировал
      * по реальному footprint, а не по хардкод-оценке. Передавай СТАБИЛЬНУЮ
@@ -39,6 +44,7 @@
     visible = false,
     position = { x: 0, y: 0 },
     onAction,
+    onHeading,
     onMeasure,
   }: Props = $props();
 
@@ -81,12 +87,79 @@
   function handle(action: ToolbarAction) {
     onAction?.(action);
   }
+
+  /**
+   * Сохранить фокус/выделение редактора при взаимодействии с тулбаром: гасим
+   * default у mousedown, чтобы фокус не уходил из редактора (иначе CM-blur
+   * скрыл бы саму панель и сбросил геометрию выделения). Клик при этом
+   * срабатывает штатно. Применяется ко ВСЕМ контролам панели (MDP-18).
+   */
+  function keepEditorFocus(e: MouseEvent) {
+    e.preventDefault();
+  }
+
+  // ----- Dropdown уровней заголовка (MDP-18) -----
+  interface HeadingItem {
+    level: number;
+    label: string;
+  }
+  const headingItems: HeadingItem[] = [
+    { level: 0, label: "Параграф" },
+    { level: 1, label: "Заголовок 1" },
+    { level: 2, label: "Заголовок 2" },
+    { level: 3, label: "Заголовок 3" },
+    { level: 4, label: "Заголовок 4" },
+    { level: 5, label: "Заголовок 5" },
+    { level: 6, label: "Заголовок 6" },
+  ];
+
+  let menuOpen = $state(false);
+  let dropdownEl: HTMLDivElement | undefined = $state();
+
+  function toggleMenu() {
+    menuOpen = !menuOpen;
+  }
+
+  function chooseHeading(level: number) {
+    onHeading?.(level);
+    menuOpen = false;
+  }
+
+  // Закрытие меню fail-closed: клик вне dropdown, Escape, либо скрытие панели.
+  function onWindowPointerDown(e: PointerEvent) {
+    if (
+      dropdownEl &&
+      e.target instanceof Node &&
+      dropdownEl.contains(e.target)
+    ) {
+      return;
+    }
+    menuOpen = false;
+  }
+
+  function onWindowKeydown(e: KeyboardEvent) {
+    if (e.key === "Escape" && menuOpen) {
+      e.preventDefault();
+      menuOpen = false;
+    }
+  }
+
+  $effect(() => {
+    // Когда панель скрывается, меню не должно «зависнуть» открытым.
+    if (!visible) menuOpen = false;
+  });
 </script>
+
+<svelte:window
+  onpointerdown={onWindowPointerDown}
+  onkeydown={onWindowKeydown}
+/>
 
 <!--
   Панель всегда в DOM (для плавного opacity-перехода), но aria-hidden и без
   pointer-events когда скрыта. `role="toolbar"` + aria-label делают её
-  доступной; каждая кнопка icon-only с обязательным aria-label.
+  доступной; каждая кнопка icon-only с обязательным aria-label. Все контролы
+  гасят default mousedown (keepEditorFocus), чтобы не уводить фокус из редактора.
 -->
 <div
   bind:this={el}
@@ -109,12 +182,52 @@
         aria-label={btn.label}
         title={btn.label}
         tabindex={visible ? 0 : -1}
+        onmousedown={keepEditorFocus}
         onclick={() => handle(btn.action)}
       >
         <Icon name={btn.icon} size={14} />
       </button>
     {/each}
   {/each}
+
+  <span class="floating-toolbar__sep" aria-hidden="true"></span>
+
+  <!-- Dropdown уровней заголовка (MDP-18). Меню — абсолютный потомок панели. -->
+  <div class="floating-toolbar__dropdown" bind:this={dropdownEl}>
+    <button
+      type="button"
+      class="floating-toolbar__btn floating-toolbar__trigger"
+      aria-label="Уровень заголовка"
+      title="Уровень заголовка"
+      aria-haspopup="menu"
+      aria-expanded={menuOpen}
+      tabindex={visible ? 0 : -1}
+      onmousedown={keepEditorFocus}
+      onclick={toggleMenu}
+    >
+      <Icon name="heading" size={14} />
+      <Icon name="chevron-down" size={14} />
+    </button>
+    {#if menuOpen}
+      <div
+        class="floating-toolbar__menu"
+        role="menu"
+        aria-label="Уровень заголовка"
+      >
+        {#each headingItems as item (item.level)}
+          <button
+            type="button"
+            class="floating-toolbar__menu-item"
+            role="menuitem"
+            onmousedown={keepEditorFocus}
+            onclick={() => chooseHeading(item.level)}
+          >
+            {item.label}
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -185,5 +298,58 @@
     color: var(--fg-primary);
     /* Кольцо фокуса: геометрия из токена --focus-ring-width, цвет — accent-muted. */
     box-shadow: 0 0 0 var(--focus-ring-width) var(--accent-muted);
+  }
+
+  /* Триггер dropdown шире обычной кнопки: иконка заголовка + шеврон. */
+  .floating-toolbar__dropdown {
+    position: relative;
+    display: inline-flex;
+  }
+  .floating-toolbar__trigger {
+    width: auto;
+    gap: var(--space-half);
+    padding: 0 var(--space-1);
+  }
+
+  /* Меню уровней — абсолютный потомок панели, раскрывается вниз под триггером. */
+  .floating-toolbar__menu {
+    position: absolute;
+    top: calc(100% + var(--space-1));
+    left: 0;
+    z-index: var(--z-floating-toolbar);
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-half);
+    min-width: var(--context-menu-min-width);
+    padding: var(--space-1);
+
+    background: var(--bg-overlay);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .floating-toolbar__menu-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: var(--h-control-sm);
+    padding: 0 var(--space-2);
+
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--fg-primary);
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    text-align: left;
+    cursor: pointer;
+
+    transition: background var(--motion-fast) var(--ease-out);
+  }
+  .floating-toolbar__menu-item:hover,
+  .floating-toolbar__menu-item:focus-visible {
+    outline: none;
+    background: var(--bg-hover);
   }
 </style>

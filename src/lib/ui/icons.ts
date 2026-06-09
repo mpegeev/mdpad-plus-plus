@@ -141,6 +141,13 @@ export const icons = {
     ["path", { d: "m14 9.5 2 2.5-2 2.5" }],
     ["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2" }],
   ],
+  // Heading dropdown (MDP-18): `heading` — триггер, `chevron-down` — индикатор.
+  heading: [
+    ["path", { d: "M6 12h12" }],
+    ["path", { d: "M6 20V4" }],
+    ["path", { d: "M18 20V4" }],
+  ],
+  "chevron-down": [["path", { d: "m6 9 6 6 6-6" }]],
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof icons;
