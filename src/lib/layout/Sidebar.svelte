@@ -63,6 +63,28 @@
     return () => ro.disconnect();
   });
 
+  // Expand-to-path scroll (MDP-47). When the active document's row becomes
+  // reachable (e.g. after revealPath expands its ancestor folders), bring it
+  // into view. Only scrolls when the row is OUTSIDE the current viewport, so
+  // ordinary clicks on already-visible rows never jump.
+  $effect(() => {
+    const path = activePath;
+    const rows = flat; // re-run when the flattened tree changes (folders expand)
+    if (path === null || !scrollEl) return;
+    const idx = rows.findIndex((n) => n.path === path);
+    if (idx < 0) return;
+    const rowTop = idx * ROW_HEIGHT;
+    const rowBottom = rowTop + ROW_HEIGHT;
+    const viewTop = scrollEl.scrollTop;
+    const viewBottom = viewTop + scrollEl.clientHeight;
+    if (rowTop >= viewTop && rowBottom <= viewBottom) return; // already visible
+    // Center the row in the viewport (clamped to the top).
+    scrollEl.scrollTop = Math.max(
+      0,
+      rowTop - scrollEl.clientHeight / 2 + ROW_HEIGHT / 2,
+    );
+  });
+
   async function onRowActivate(path: string, isDir: boolean) {
     if (isDir) {
       await toggleDir(path);

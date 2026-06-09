@@ -12,37 +12,32 @@ import { ancestorDirsToReveal } from "./revealPath";
 describe("ancestorDirsToReveal — примеры из спецификации", () => {
   it("AC: двухуровневый путь возвращает оба промежуточных каталога по порядку", () => {
     // AC: внешний→внутренний, rootPath и filePath исключены
-    expect(
-      ancestorDirsToReveal("/root/a/b/file.md", "/root"),
-    ).toEqual(["/root/a", "/root/a/b"]);
+    expect(ancestorDirsToReveal("/root/a/b/file.md", "/root")).toEqual([
+      "/root/a",
+      "/root/a/b",
+    ]);
   });
 
   it("AC: файл прямо в корне возвращает пустой массив", () => {
     // AC: родитель файла === rootPath → []
-    expect(
-      ancestorDirsToReveal("/root/file.md", "/root"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("/root/file.md", "/root")).toEqual([]);
   });
 
   it("AC: трейлинг-слэш у rootPath игнорируется — один промежуточный каталог", () => {
     // AC: завершающий разделитель у rootPath не влияет на результат
-    expect(
-      ancestorDirsToReveal("/root/a/file.md", "/root/"),
-    ).toEqual(["/root/a"]);
+    expect(ancestorDirsToReveal("/root/a/file.md", "/root/")).toEqual([
+      "/root/a",
+    ]);
   });
 
   it("negative: filePath не является потомком rootPath → []", () => {
     // negative: /other не начинается с /root
-    expect(
-      ancestorDirsToReveal("/other/file.md", "/root"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("/other/file.md", "/root")).toEqual([]);
   });
 
   it("negative: посегментная граница — '/ro' не является родителем '/root/...'", () => {
     // negative: '/ro' — это префикс строки, но не предок по сегментам
-    expect(
-      ancestorDirsToReveal("/root/x.md", "/ro"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("/root/x.md", "/ro")).toEqual([]);
   });
 
   it("AC: Windows-пути с обратными слэшами — два промежуточных каталога", () => {
@@ -54,9 +49,7 @@ describe("ancestorDirsToReveal — примеры из спецификации"
 
   it("negative: оба аргумента — пустые строки → []", () => {
     // negative: пустые строки на входе
-    expect(
-      ancestorDirsToReveal("", ""),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("", "")).toEqual([]);
   });
 });
 
@@ -65,16 +58,12 @@ describe("ancestorDirsToReveal — примеры из спецификации"
 describe("ancestorDirsToReveal — пустые строки", () => {
   it("negative: filePath пустой, rootPath непустой → []", () => {
     // negative: пустой filePath
-    expect(
-      ancestorDirsToReveal("", "/root"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("", "/root")).toEqual([]);
   });
 
   it("negative: filePath непустой, rootPath пустой → []", () => {
     // negative: пустой rootPath
-    expect(
-      ancestorDirsToReveal("/root/a/file.md", ""),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("/root/a/file.md", "")).toEqual([]);
   });
 });
 
@@ -83,16 +72,16 @@ describe("ancestorDirsToReveal — пустые строки", () => {
 describe("ancestorDirsToReveal — завершающие разделители", () => {
   it("AC: несколько трейлинг-слэшей у rootPath игнорируются", () => {
     // AC: нормализация rootPath — убираются завершающие '/'
-    expect(
-      ancestorDirsToReveal("/root/a/file.md", "/root///"),
-    ).toEqual(["/root/a"]);
+    expect(ancestorDirsToReveal("/root/a/file.md", "/root///")).toEqual([
+      "/root/a",
+    ]);
   });
 
   it("AC: трейлинг-слэш у rootPath (Windows '\\') игнорируется", () => {
     // AC: нормализация для обратного слэша
-    expect(
-      ancestorDirsToReveal("C:\\proj\\sub\\f.md", "C:\\proj\\"),
-    ).toEqual(["C:\\proj\\sub"]);
+    expect(ancestorDirsToReveal("C:\\proj\\sub\\f.md", "C:\\proj\\")).toEqual([
+      "C:\\proj\\sub",
+    ]);
   });
 });
 
@@ -108,7 +97,7 @@ describe("ancestorDirsToReveal — глубокая вложенность", () 
   it("AC: три уровня — первый элемент ближайший к корню, последний — родитель файла", () => {
     // invariant: result[0] — прямой потомок rootPath, result[last] — родитель filePath
     const result = ancestorDirsToReveal("/root/x/y/z/file.md", "/root");
-    expect(result[0]).toBe("/root/x");                  // invariant: первый — прямой потомок корня
+    expect(result[0]).toBe("/root/x"); // invariant: первый — прямой потомок корня
     expect(result[result.length - 1]).toBe("/root/x/y/z"); // invariant: последний — родитель файла
   });
 
@@ -125,16 +114,12 @@ describe("ancestorDirsToReveal — глубокая вложенность", () 
 describe("ancestorDirsToReveal — filePath совпадает с rootPath", () => {
   it("negative: filePath === rootPath → []", () => {
     // negative: filePath совпадает с rootPath — не является потомком
-    expect(
-      ancestorDirsToReveal("/root", "/root"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("/root", "/root")).toEqual([]);
   });
 
   it("negative: filePath === rootPath с трейлинг-слэшем → []", () => {
     // negative: после нормализации они совпадают
-    expect(
-      ancestorDirsToReveal("/root/", "/root"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("/root/", "/root")).toEqual([]);
   });
 });
 
@@ -143,23 +128,17 @@ describe("ancestorDirsToReveal — filePath совпадает с rootPath", () 
 describe("ancestorDirsToReveal — одиночный сегмент", () => {
   it("AC: корень — одиночный символ '/', файл прямо в нём → []", () => {
     // edge case: корень файловой системы POSIX
-    expect(
-      ancestorDirsToReveal("/file.md", "/"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("/file.md", "/")).toEqual([]);
   });
 
   it("AC: корень — одиночный символ '/', один подкаталог до файла", () => {
     // edge case: один промежуточный каталог от корня ФС
-    expect(
-      ancestorDirsToReveal("/home/file.md", "/"),
-    ).toEqual(["/home"]);
+    expect(ancestorDirsToReveal("/home/file.md", "/")).toEqual(["/home"]);
   });
 
   it("AC: Windows-диск без вложенности — файл прямо в корне → []", () => {
     // edge case: C:\ как корень, файл на первом уровне
-    expect(
-      ancestorDirsToReveal("C:\\file.md", "C:\\"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("C:\\file.md", "C:\\")).toEqual([]);
   });
 });
 
@@ -168,23 +147,19 @@ describe("ancestorDirsToReveal — одиночный сегмент", () => {
 describe("ancestorDirsToReveal — регистрозависимое сравнение", () => {
   it("negative: rootPath в другом регистре не совпадает → []", () => {
     // AC: сравнение регистрозависимое
-    expect(
-      ancestorDirsToReveal("/Root/a/file.md", "/root"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("/Root/a/file.md", "/root")).toEqual([]);
   });
 
   it("negative: сегмент пути в другом регистре → []", () => {
     // AC: '/ROOT/a/file.md' и '/root' — разные сегменты
-    expect(
-      ancestorDirsToReveal("/ROOT/a/file.md", "/root"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("/ROOT/a/file.md", "/root")).toEqual([]);
   });
 
   it("AC: совпадение при одинаковом регистре работает корректно", () => {
     // AC: регистр совпадает — нормальный результат
-    expect(
-      ancestorDirsToReveal("/Root/a/file.md", "/Root"),
-    ).toEqual(["/Root/a"]);
+    expect(ancestorDirsToReveal("/Root/a/file.md", "/Root")).toEqual([
+      "/Root/a",
+    ]);
   });
 });
 
@@ -204,9 +179,7 @@ describe("ancestorDirsToReveal — смешанные разделители", (
 
   it("edge case: rootPath со смешанными разделителями — трейлинг нормализуется", () => {
     // edge case: корень с обратным слэшем на конце Unix-пути
-    expect(
-      ancestorDirsToReveal("/root/a/file.md", "/root\\"),
-    ).toEqual([]); // '/root\\' не является корнем '/root/a/...' по сегментам
+    expect(ancestorDirsToReveal("/root/a/file.md", "/root\\")).toEqual([]); // '/root\\' не является корнем '/root/a/...' по сегментам
   });
 });
 
@@ -222,9 +195,9 @@ describe("ancestorDirsToReveal — граничные случаи по типу
 
   it("edge case: путь содержит пробелы в имени каталога", () => {
     // edge case: пробелы в имени — не разделитель
-    expect(
-      ancestorDirsToReveal("/root/my docs/file.md", "/root"),
-    ).toEqual(["/root/my docs"]);
+    expect(ancestorDirsToReveal("/root/my docs/file.md", "/root")).toEqual([
+      "/root/my docs",
+    ]);
   });
 
   it("edge case: очень длинный путь — длина результата корректна", () => {
@@ -238,23 +211,20 @@ describe("ancestorDirsToReveal — граничные случаи по типу
 
   it("edge case: filePath с точкой в имени каталога (не '..' traversal)", () => {
     // edge case: '.' в имени — обычный символ, не навигация
-    expect(
-      ancestorDirsToReveal("/root/v1.0/docs/file.md", "/root"),
-    ).toEqual(["/root/v1.0", "/root/v1.0/docs"]);
+    expect(ancestorDirsToReveal("/root/v1.0/docs/file.md", "/root")).toEqual([
+      "/root/v1.0",
+      "/root/v1.0/docs",
+    ]);
   });
 
   it("negative: filePath — префикс строки rootPath, но не потомок → []", () => {
     // negative: '/root' является строковым префиксом '/root-extra/...', но не предком
-    expect(
-      ancestorDirsToReveal("/root/file.md", "/root-extra"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("/root/file.md", "/root-extra")).toEqual([]);
   });
 
   it("negative: rootPath длиннее filePath → []", () => {
     // negative: rootPath не может быть предком, если длиннее filePath
-    expect(
-      ancestorDirsToReveal("/a/b", "/a/b/c/d"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("/a/b", "/a/b/c/d")).toEqual([]);
   });
 });
 
@@ -312,36 +282,34 @@ describe("ancestorDirsToReveal — инварианты возвращаемог
 describe("ancestorDirsToReveal — Windows-пути", () => {
   it("AC: Windows — один промежуточный каталог", () => {
     // AC: Windows-разделитель
-    expect(
-      ancestorDirsToReveal("C:\\root\\sub\\file.md", "C:\\root"),
-    ).toEqual(["C:\\root\\sub"]);
+    expect(ancestorDirsToReveal("C:\\root\\sub\\file.md", "C:\\root")).toEqual([
+      "C:\\root\\sub",
+    ]);
   });
 
   it("AC: Windows — файл прямо в корне диска → []", () => {
     // AC: Windows, родитель файла === rootPath
-    expect(
-      ancestorDirsToReveal("C:\\proj\\file.md", "C:\\proj"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("C:\\proj\\file.md", "C:\\proj")).toEqual([]);
   });
 
   it("negative: Windows — разные диски → []", () => {
     // negative: D: не является предком C:
-    expect(
-      ancestorDirsToReveal("D:\\proj\\sub\\file.md", "C:\\proj"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("D:\\proj\\sub\\file.md", "C:\\proj")).toEqual(
+      [],
+    );
   });
 
   it("negative: Windows — посегментная граница (C:\\pro не является предком C:\\proj\\...)", () => {
     // negative: строковый префикс без сегментной границы
-    expect(
-      ancestorDirsToReveal("C:\\proj\\file.md", "C:\\pro"),
-    ).toEqual([]);
+    expect(ancestorDirsToReveal("C:\\proj\\file.md", "C:\\pro")).toEqual([]);
   });
 
   it("AC: Windows — глубокая вложенность три уровня", () => {
     // AC: три промежуточных каталога, порядок внешний→внутренний
-    expect(
-      ancestorDirsToReveal("C:\\a\\b\\c\\d\\file.md", "C:\\a"),
-    ).toEqual(["C:\\a\\b", "C:\\a\\b\\c", "C:\\a\\b\\c\\d"]);
+    expect(ancestorDirsToReveal("C:\\a\\b\\c\\d\\file.md", "C:\\a")).toEqual([
+      "C:\\a\\b",
+      "C:\\a\\b\\c",
+      "C:\\a\\b\\c\\d",
+    ]);
   });
 });

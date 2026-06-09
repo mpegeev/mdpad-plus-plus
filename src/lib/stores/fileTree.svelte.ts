@@ -23,6 +23,7 @@
 import type { DirEntry } from "$lib/fs";
 import { pickFolder as realPickFolder, listDir as realListDir } from "$lib/fs";
 import { filterEntries, sortEntries, type FlatNode } from "./fileTree";
+import { ancestorDirsToReveal } from "./revealPath";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -270,6 +271,28 @@ export async function toggleDir(path: string): Promise<void> {
     node.expanded = false;
   } finally {
     node.loading = false;
+  }
+}
+
+/**
+ * Expand-to-path (MDP-47): раскрывает все родительские каталоги от корня дерева
+ * до `filePath`, лениво загружая детей сверху вниз. После раскрытия строка файла
+ * становится достижимой в дереве; её подсветка/скролл — забота Sidebar по
+ * активному документу.
+ *
+ * Fail-closed: нет открытого корня, файл вне корня (посегментно), либо нужный
+ * каталог отсутствует в дереве (расхождение FS) → no-op без исключений.
+ * Каталоги раскрываются строго последовательно (await), т.к. дети следующего
+ * уровня появляются только после ленивой загрузки предыдущего.
+ */
+export async function revealPath(filePath: string): Promise<void> {
+  if (rootPath === null) return;
+  const ancestors = ancestorDirsToReveal(filePath, rootPath);
+  for (const dir of ancestors) {
+    const node = findNode(dir);
+    if (!node || !node.isDir) return; // каталога нет в дереве — fail-closed
+    // Раскрываем только если свёрнут: toggleDir на раскрытом — свернёт.
+    if (!node.expanded) await toggleDir(dir);
   }
 }
 
