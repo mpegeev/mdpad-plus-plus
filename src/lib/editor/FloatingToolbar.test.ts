@@ -12,11 +12,14 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/svelte";
+import { render, fireEvent } from "@testing-library/svelte";
 import { tick } from "svelte";
 import FloatingToolbar from "./FloatingToolbar.svelte";
 
 const ACTIONS = ["bold", "italic", "underline", "code", "code-fence"] as const;
+
+/** Кнопки форматирования (без триггера dropdown заголовков, MDP-18). */
+const FORMAT_BTN = ".floating-toolbar__btn:not(.floating-toolbar__trigger)";
 
 describe("FloatingToolbar.svelte: структура (AC#1, AC#3)", () => {
   it("AC#1: рендерит панель с role=toolbar и aria-label", () => {
@@ -26,10 +29,11 @@ describe("FloatingToolbar.svelte: структура (AC#1, AC#3)", () => {
     expect(toolbar.getAttribute("aria-label")).toBeTruthy();
   });
 
-  it("AC#3: каждая кнопка — только иконка с непустым aria-label (без текста)", () => {
+  it("AC#3: каждая кнопка форматирования — только иконка с непустым aria-label (без текста)", () => {
     const { getByRole } = render(FloatingToolbar, { props: { visible: true } });
     const toolbar = getByRole("toolbar");
-    const buttons = toolbar.querySelectorAll("button");
+    // Считаем только кнопки форматирования; триггер dropdown (MDP-18) исключён.
+    const buttons = toolbar.querySelectorAll(FORMAT_BTN);
     expect(buttons.length).toBe(ACTIONS.length);
     for (const btn of Array.from(buttons)) {
       const label = btn.getAttribute("aria-label");
@@ -45,7 +49,9 @@ describe("FloatingToolbar.svelte: структура (AC#1, AC#3)", () => {
     const { getByRole } = render(FloatingToolbar, {
       props: { visible: true, onAction },
     });
-    const buttons = Array.from(getByRole("toolbar").querySelectorAll("button"));
+    const buttons = Array.from(
+      getByRole("toolbar").querySelectorAll(FORMAT_BTN),
+    );
     for (const btn of buttons) {
       (btn as HTMLButtonElement).click();
     }
@@ -134,6 +140,110 @@ describe("FloatingToolbar.svelte: onMeasure (MDP-48)", () => {
   it("без onMeasure монтаж не вызывает ошибку (fail-safe)", () => {
     expect(() =>
       render(FloatingToolbar, { props: { visible: false } }),
+    ).not.toThrow();
+  });
+});
+
+describe("FloatingToolbar.svelte: dropdown заголовков (MDP-18)", () => {
+  it("есть триггер с aria-haspopup=menu; меню закрыто по умолчанию", () => {
+    const { getByLabelText, queryByRole } = render(FloatingToolbar, {
+      props: { visible: true },
+    });
+    const trigger = getByLabelText("Уровень заголовка");
+    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(queryByRole("menu")).toBeNull();
+  });
+
+  it("клик по триггеру открывает меню с 7 пунктами (Параграф + H1..H6)", async () => {
+    const { getByLabelText, getByRole } = render(FloatingToolbar, {
+      props: { visible: true },
+    });
+    (getByLabelText("Уровень заголовка") as HTMLButtonElement).click();
+    await tick();
+    const items = getByRole("menu").querySelectorAll('[role="menuitem"]');
+    expect(items.length).toBe(7);
+  });
+
+  it("выбор пункта вызывает onHeading с его уровнем и закрывает меню", async () => {
+    const onHeading = vi.fn();
+    const { getByLabelText, getByText, queryByRole } = render(FloatingToolbar, {
+      props: { visible: true, onHeading },
+    });
+    (getByLabelText("Уровень заголовка") as HTMLButtonElement).click();
+    await tick();
+    (getByText("Заголовок 2") as HTMLButtonElement).click();
+    await tick();
+    expect(onHeading).toHaveBeenCalledWith(2);
+    expect(queryByRole("menu")).toBeNull();
+  });
+
+  it("пункт «Параграф» соответствует уровню 0", async () => {
+    const onHeading = vi.fn();
+    const { getByLabelText, getByText } = render(FloatingToolbar, {
+      props: { visible: true, onHeading },
+    });
+    (getByLabelText("Уровень заголовка") as HTMLButtonElement).click();
+    await tick();
+    (getByText("Параграф") as HTMLButtonElement).click();
+    await tick();
+    expect(onHeading).toHaveBeenCalledWith(0);
+  });
+
+  it("Escape закрывает открытое меню (fail-closed)", async () => {
+    const { getByLabelText, queryByRole } = render(FloatingToolbar, {
+      props: { visible: true },
+    });
+    (getByLabelText("Уровень заголовка") as HTMLButtonElement).click();
+    await tick();
+    expect(queryByRole("menu")).not.toBeNull();
+    await fireEvent.keyDown(window, { key: "Escape" });
+    await tick();
+    expect(queryByRole("menu")).toBeNull();
+  });
+
+  it("pointerdown вне dropdown закрывает меню", async () => {
+    const { getByLabelText, queryByRole } = render(FloatingToolbar, {
+      props: { visible: true },
+    });
+    (getByLabelText("Уровень заголовка") as HTMLButtonElement).click();
+    await tick();
+    expect(queryByRole("menu")).not.toBeNull();
+    await fireEvent(document.body, new Event("pointerdown", { bubbles: true }));
+    await tick();
+    expect(queryByRole("menu")).toBeNull();
+  });
+
+  it("скрытие панели (visible=false) закрывает меню", async () => {
+    const { getByLabelText, queryByRole, rerender } = render(FloatingToolbar, {
+      props: { visible: true },
+    });
+    (getByLabelText("Уровень заголовка") as HTMLButtonElement).click();
+    await tick();
+    expect(queryByRole("menu")).not.toBeNull();
+    await rerender({ visible: false });
+    await tick();
+    expect(queryByRole("menu")).toBeNull();
+  });
+
+  it("контролы гасят default mousedown — фокус редактора сохраняется", () => {
+    const { getByLabelText } = render(FloatingToolbar, {
+      props: { visible: true },
+    });
+    const trigger = getByLabelText("Уровень заголовка");
+    const ev = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    trigger.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it("без onHeading выбор пункта не падает (fail-safe)", async () => {
+    const { getByLabelText, getByText } = render(FloatingToolbar, {
+      props: { visible: true },
+    });
+    (getByLabelText("Уровень заголовка") as HTMLButtonElement).click();
+    await tick();
+    expect(() =>
+      (getByText("Заголовок 1") as HTMLButtonElement).click(),
     ).not.toThrow();
   });
 });

@@ -35,7 +35,7 @@
  */
 
 import { keymap } from "@codemirror/view";
-import type { Command } from "@codemirror/view";
+import type { Command, EditorView } from "@codemirror/view";
 import type { ToolbarAction } from "./toolbarVisibility";
 
 /** Результат чистого преобразования: новый полный текст + новое выделение. */
@@ -310,6 +310,153 @@ export function toggleCodeFence(
   return { text: next, from: newFrom, to: newFrom + block.length };
 }
 
+// ----- Блочное форматирование (MDP-18): заголовки и отступы списков -----
+
+/** Единица отступа списка — 2 пробела (совпадает с дефолтом CM6 indentUnit). */
+const INDENT_UNIT = "  ";
+
+/**
+ * ATX-префикс заголовка: 1–6 решёток, ЗА которыми обязателен хотя бы один
+ * пробел/таб. Голый `#` (без последующего пробела) намеренно НЕ считается
+ * заголовком — это литеральный текст в процессе набора. Решение зафиксировано
+ * при разрешении неоднозначности критерия (контрактные тесты MDP-18).
+ */
+const HEADING_PREFIX = /^(#{1,6})[ \t]+/;
+
+/** Ведущие пробелы/табы строки. */
+const LEADING_WS = /^[ \t]*/;
+
+/**
+ * Строка — элемент списка: маркер `-`/`*`/`+` или нумерация `\d{1,9}` с `.`/`)`,
+ * за которыми пробел/таб ЛИБО конец строки (голый маркер тоже считается).
+ * Ведущие пробелы допускаются (вложенные элементы).
+ */
+const LIST_ITEM = /^\s*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)/;
+
+/** Модель строк документа: сами строки и смещение начала каждой. */
+interface LineModel {
+  lines: string[];
+  lineStart: number[];
+}
+
+function modelLines(text: string): LineModel {
+  const lines = text.split("\n");
+  const lineStart: number[] = [];
+  let acc = 0;
+  for (const ln of lines) {
+    lineStart.push(acc);
+    acc += ln.length + 1; // +1 за '\n'
+  }
+  return { lines, lineStart };
+}
+
+/**
+ * Диапазон строк, затронутых выделением `[from, to]` — та же логика, что в
+ * `toggleCodeFence`: первая строка — последняя, чьё начало <= from; последняя —
+ * первая (с первой), чей конец содержимого >= to. Возвращает индексы строк.
+ */
+function affectedLineRange(
+  model: LineModel,
+  from: number,
+  to: number,
+): [number, number] {
+  const { lines, lineStart } = model;
+  let startLine = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lineStart[i] <= from) startLine = i;
+    else break;
+  }
+  let endLine = startLine;
+  for (let i = startLine; i < lines.length; i++) {
+    endLine = i;
+    if (lineStart[i] + lines[i].length >= to) break;
+  }
+  return [startLine, endLine];
+}
+
+/**
+ * Применить построчное преобразование `fn` к строкам, затронутым выделением.
+ * Возвращает новый полный текст и выделение, охватывающее затронутые строки
+ * (от начала первой до конца содержимого последней — без завершающего `\n`).
+ */
+function transformAffectedLines(
+  text: string,
+  from: number,
+  to: number,
+  fn: (line: string) => string,
+): FormatRange {
+  const model = modelLines(text);
+  const [startLine, endLine] = affectedLineRange(model, from, to);
+  const { lines, lineStart } = model;
+
+  const newAffected = lines.slice(startLine, endLine + 1).map(fn);
+  const head = lines.slice(0, startLine);
+  const tail = lines.slice(endLine + 1);
+  const next = [...head, ...newAffected, ...tail].join("\n");
+
+  // Строки до startLine не менялись → начало затронутого блока совпадает.
+  const newFrom = lineStart[startLine];
+  const newTo = newFrom + newAffected.join("\n").length;
+  return { text: next, from: newFrom, to: newTo };
+}
+
+/**
+ * Установить уровень ATX-заголовка для всех строк, затронутых `[from, to]`.
+ *   level 0      → параграф (снять заголовок);
+ *   level 1..6   → ровно этот уровень (идемпотентно — повтор не меняет текст).
+ *
+ * Ведущие пробелы/табы строки сохраняются; маркеры вставляются после них.
+ * Пустой контент → решётки без висячего пробела (`#`, а не `# `).
+ * Это set-семантика (не toggle): отдельное снятие — через level 0.
+ */
+export function setHeadingLevel(
+  text: string,
+  from: number,
+  to: number,
+  level: number,
+): FormatRange {
+  return transformAffectedLines(text, from, to, (line) => {
+    const ws = line.match(LEADING_WS)?.[0] ?? "";
+    const content = line.slice(ws.length).replace(HEADING_PREFIX, "");
+    if (level === 0) return ws + content;
+    if (content === "") return ws + "#".repeat(level);
+    return ws + "#".repeat(level) + " " + content;
+  });
+}
+
+/**
+ * Добавить один уровень отступа (2 пробела) каждой строке-элементу списка,
+ * затронутой `[from, to]`. Не-списочные строки не меняются (Tab вне списков
+ * должен делать дефолт — это решает команда по факту изменения текста).
+ */
+export function indentListLines(
+  text: string,
+  from: number,
+  to: number,
+): FormatRange {
+  return transformAffectedLines(text, from, to, (line) =>
+    LIST_ITEM.test(line) ? INDENT_UNIT + line : line,
+  );
+}
+
+/**
+ * Снять один уровень отступа (до 2 ЛИТЕРАЛЬНЫХ ведущих пробелов) с каждой
+ * строки-элемента списка, затронутой `[from, to]`. Табы не снимаются —
+ * стандартизируемся на пробелах. Не-списочные строки не меняются.
+ */
+export function outdentListLines(
+  text: string,
+  from: number,
+  to: number,
+): FormatRange {
+  return transformAffectedLines(text, from, to, (line) => {
+    if (!LIST_ITEM.test(line)) return line;
+    let removed = 0;
+    while (removed < INDENT_UNIT.length && line[removed] === " ") removed++;
+    return line.slice(removed);
+  });
+}
+
 /**
  * Единый ЧИСТЫЙ диспетчер форматирования (MDP-46): маршрутизирует действие
  * тулбара/хоткея к нужному преобразованию над текстом. Это общий seam — и
@@ -353,6 +500,40 @@ export function formatForAction(
  * отбрасываются). Это сохраняет undo-историю на больших документах
  * (ретро-ревью R1).
  */
+function dispatchFormat(
+  view: EditorView,
+  text: string,
+  result: FormatRange,
+): void {
+  // Вычисляем минимальный изменённый диапазон: общий префикс и суффикс.
+  let start = 0;
+  const maxPrefix = Math.min(text.length, result.text.length);
+  while (start < maxPrefix && text[start] === result.text[start]) start++;
+
+  let endOld = text.length;
+  let endNew = result.text.length;
+  while (
+    endOld > start &&
+    endNew > start &&
+    text[endOld - 1] === result.text[endNew - 1]
+  ) {
+    endOld--;
+    endNew--;
+  }
+
+  view.dispatch({
+    changes: {
+      from: start,
+      to: endOld,
+      insert: result.text.slice(start, endNew),
+    },
+    selection: { anchor: result.from, head: result.to },
+    scrollIntoView: true,
+    userEvent: "input.format",
+  });
+  view.focus();
+}
+
 function applyFormat(
   fn: (text: string, from: number, to: number) => FormatRange,
 ): Command {
@@ -360,35 +541,27 @@ function applyFormat(
     const { state } = view;
     const range = state.selection.main;
     const text = state.doc.toString();
+    dispatchFormat(view, text, fn(text, range.from, range.to));
+    return true;
+  };
+}
+
+/**
+ * Как `applyFormat`, но команда «отказывается» (возвращает false), если
+ * преобразование не изменило текст. Это позволяет клавише провалиться к
+ * следующей привязке: Tab/Shift+Tab перехватываются только когда реально
+ * меняют отступ списка, иначе работает дефолтное поведение (MDP-18, AC#3).
+ */
+function applyFormatIfChanged(
+  fn: (text: string, from: number, to: number) => FormatRange,
+): Command {
+  return (view) => {
+    const { state } = view;
+    const range = state.selection.main;
+    const text = state.doc.toString();
     const result = fn(text, range.from, range.to);
-
-    // Вычисляем минимальный изменённый диапазон: общий префикс и суффикс.
-    let start = 0;
-    const maxPrefix = Math.min(text.length, result.text.length);
-    while (start < maxPrefix && text[start] === result.text[start]) start++;
-
-    let endOld = text.length;
-    let endNew = result.text.length;
-    while (
-      endOld > start &&
-      endNew > start &&
-      text[endOld - 1] === result.text[endNew - 1]
-    ) {
-      endOld--;
-      endNew--;
-    }
-
-    view.dispatch({
-      changes: {
-        from: start,
-        to: endOld,
-        insert: result.text.slice(start, endNew),
-      },
-      selection: { anchor: result.from, head: result.to },
-      scrollIntoView: true,
-      userEvent: "input.format",
-    });
-    view.focus();
+    if (result.text === text) return false;
+    dispatchFormat(view, text, result);
     return true;
   };
 }
@@ -419,13 +592,53 @@ export const toggleInlineCode: Command = commandForAction("code");
 /** Обернуть/снять ограждение ``` (хоткей не задан — только команда). */
 export const toggleCodeFenceCommand: Command = commandForAction("code-fence");
 
+// ----- Команды блочного форматирования (MDP-18) -----
+
+/**
+ * CM6-команда установки уровня заголовка (level 0 — параграф, 1..6 — H1..H6).
+ * Используется и хоткеями `Ctrl+0..6`, и dropdown плавающей панели (общий путь
+ * через чистый `setHeadingLevel`). Всегда применяется (set-семантика).
+ */
+export function commandForHeading(level: number): Command {
+  return applyFormat((text, from, to) =>
+    setHeadingLevel(text, from, to, level),
+  );
+}
+
+/**
+ * Tab внутри списка — увеличить отступ (вложить) выделенных элементов. Вне
+ * списка (текст не меняется) возвращает false → срабатывает дефолтный Tab.
+ */
+export const indentListCommand: Command = applyFormatIfChanged(indentListLines);
+
+/**
+ * Shift+Tab внутри списка — уменьшить отступ. На нулевом отступе/вне списка
+ * текст не меняется → false (дефолтное поведение клавиши).
+ */
+export const outdentListCommand: Command =
+  applyFormatIfChanged(outdentListLines);
+
 /**
  * Раскладка хоткеев форматирования. Подключается в Editor.svelte рядом с
- * остальными keymap. Code-fence намеренно без хоткея (AC#5).
+ * остальными keymap. Code-fence намеренно без хоткея (AC#5 MDP-17).
+ *
+ * MDP-18: `Ctrl+0..6` — уровни заголовков (0 = параграф); `Tab`/`Shift-Tab` —
+ * отступы элементов списка (перехват только внутри списков, см. команды выше).
+ * Записи заголовков идут до Tab; все — до defaultKeymap (подключается в
+ * Editor.svelte), чтобы перехватывать сочетания раньше дефолтных привязок.
  */
 export const formatKeymap = keymap.of([
   { key: "Ctrl-b", run: toggleBold },
   { key: "Ctrl-i", run: toggleItalic },
   { key: "Ctrl-u", run: toggleUnderline },
   { key: "Ctrl-`", run: toggleInlineCode },
+  { key: "Ctrl-0", run: commandForHeading(0) },
+  { key: "Ctrl-1", run: commandForHeading(1) },
+  { key: "Ctrl-2", run: commandForHeading(2) },
+  { key: "Ctrl-3", run: commandForHeading(3) },
+  { key: "Ctrl-4", run: commandForHeading(4) },
+  { key: "Ctrl-5", run: commandForHeading(5) },
+  { key: "Ctrl-6", run: commandForHeading(6) },
+  { key: "Tab", run: indentListCommand },
+  { key: "Shift-Tab", run: outdentListCommand },
 ]);
