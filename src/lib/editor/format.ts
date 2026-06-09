@@ -36,6 +36,7 @@
 
 import { keymap } from "@codemirror/view";
 import type { Command } from "@codemirror/view";
+import type { ToolbarAction } from "./toolbarVisibility";
 
 /** Результат чистого преобразования: новый полный текст + новое выделение. */
 export interface FormatRange {
@@ -309,6 +310,40 @@ export function toggleCodeFence(
   return { text: next, from: newFrom, to: newFrom + block.length };
 }
 
+/**
+ * Единый ЧИСТЫЙ диспетчер форматирования (MDP-46): маршрутизирует действие
+ * тулбара/хоткея к нужному преобразованию над текстом. Это общий seam — и
+ * keymap (MDP-17), и плавающая панель (MDP-16) применяют разметку через него,
+ * без дублирования логики (AC#4).
+ *
+ *   bold       → `**…**`        (toggleInlineWrap)
+ *   italic     → `*…*`          (toggleInlineWrap)
+ *   code       → `` `…` ``      (toggleInlineWrap)
+ *   underline  → `<u>…</u>`     (toggleWrap, асимметричный)
+ *   code-fence → строки ```     (toggleCodeFence)
+ *
+ * Тотальная функция: определена на всех значениях `ToolbarAction`.
+ */
+export function formatForAction(
+  action: ToolbarAction,
+  text: string,
+  from: number,
+  to: number,
+): FormatRange {
+  switch (action) {
+    case "bold":
+      return toggleInlineWrap(text, from, to, "**");
+    case "italic":
+      return toggleInlineWrap(text, from, to, "*");
+    case "code":
+      return toggleInlineWrap(text, from, to, "`");
+    case "underline":
+      return toggleWrap(text, from, to, "<u>", "</u>");
+    case "code-fence":
+      return toggleCodeFence(text, from, to);
+  }
+}
+
 // ----- CM6 Command-обёртки -----
 
 /**
@@ -358,28 +393,31 @@ function applyFormat(
   };
 }
 
+/**
+ * Построить CM6-команду для действия тулбара через общий seam `formatForAction`
+ * (MDP-46). И хоткеи, и плавающая панель используют этот же путь — единый
+ * источник логики форматирования.
+ */
+export function commandForAction(action: ToolbarAction): Command {
+  return applyFormat((text, from, to) =>
+    formatForAction(action, text, from, to),
+  );
+}
+
 /** Обернуть/снять `**bold**` (Ctrl+B). */
-export const toggleBold: Command = applyFormat((text, from, to) =>
-  toggleInlineWrap(text, from, to, "**"),
-);
+export const toggleBold: Command = commandForAction("bold");
 
 /** Обернуть/снять `*italic*` (Ctrl+I). */
-export const toggleItalic: Command = applyFormat((text, from, to) =>
-  toggleInlineWrap(text, from, to, "*"),
-);
+export const toggleItalic: Command = commandForAction("italic");
 
 /** Обернуть/снять `<u>underline</u>` (Ctrl+U). */
-export const toggleUnderline: Command = applyFormat((text, from, to) =>
-  toggleWrap(text, from, to, "<u>", "</u>"),
-);
+export const toggleUnderline: Command = commandForAction("underline");
 
 /** Обернуть/снять `` `inline-code` `` (Ctrl+`). */
-export const toggleInlineCode: Command = applyFormat((text, from, to) =>
-  toggleInlineWrap(text, from, to, "`"),
-);
+export const toggleInlineCode: Command = commandForAction("code");
 
 /** Обернуть/снять ограждение ``` (хоткей не задан — только команда). */
-export const toggleCodeFenceCommand: Command = applyFormat(toggleCodeFence);
+export const toggleCodeFenceCommand: Command = commandForAction("code-fence");
 
 /**
  * Раскладка хоткеев форматирования. Подключается в Editor.svelte рядом с
