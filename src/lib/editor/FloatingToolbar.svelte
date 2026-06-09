@@ -26,13 +26,39 @@
     position?: ToolbarPosition;
     /** Намерение форматирования. Проводка к командам — MDP-17. */
     onAction?: (action: ToolbarAction) => void;
+    /**
+     * Фактический размер смонтированной панели (MDP-48). Вызывается при монтаже
+     * и при изменении размеров (ResizeObserver), чтобы родитель позиционировал
+     * по реальному footprint, а не по хардкод-оценке. Передавай СТАБИЛЬНУЮ
+     * ссылку, иначе эффект-измеритель будет пересоздаваться.
+     */
+    onMeasure?: (size: { width: number; height: number }) => void;
   }
 
   const {
     visible = false,
     position = { x: 0, y: 0 },
     onAction,
+    onMeasure,
   }: Props = $props();
+
+  // Панель всегда в DOM (скрыта через opacity), поэтому её размер измерим в
+  // любой момент. Сообщаем родителю фактические offsetWidth/Height на монтаже и
+  // при изменении набора кнопок (ResizeObserver). До первого замера родитель
+  // держит панель скрытой (fail-closed, без скачка).
+  let el: HTMLDivElement | undefined = $state();
+
+  $effect(() => {
+    if (!el) return;
+    const node = el;
+    const report = () =>
+      onMeasure?.({ width: node.offsetWidth, height: node.offsetHeight });
+    report();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(report);
+    ro.observe(node);
+    return () => ro.disconnect();
+  });
 
   // Группы кнопок. Разделитель рисуется между группами (DESIGN.md).
   interface ToolbarButton {
@@ -63,6 +89,7 @@
   доступной; каждая кнопка icon-only с обязательным aria-label.
 -->
 <div
+  bind:this={el}
   class="floating-toolbar"
   class:floating-toolbar--visible={visible}
   role="toolbar"

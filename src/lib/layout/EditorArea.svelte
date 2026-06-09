@@ -43,10 +43,11 @@
     setMode(active.id, cycleMode(active.mode));
   }
 
-  // ----- Floating toolbar overlay (MDP-16 + MDP-46) -----
+  // ----- Floating toolbar overlay (MDP-16 + MDP-46 + MDP-48) -----
   // The toolbar lives above the editor and reacts to selection geometry from
   // the CodeMirror view. Visibility is driven by a debounced state machine;
-  // the pixel position is computed from `coordsAtPos` and clamped to viewport.
+  // the pixel position is computed from `coordsAtPos`, clamped to viewport
+  // using the toolbar's MEASURED size (MDP-48), not a hardcoded estimate.
   //
   // onAction is wired (MDP-46) to the shared formatForAction seam via
   // commandForAction — the same path the MDP-17 hotkeys use.
@@ -55,42 +56,45 @@
   let toolbarVisible = $state(false);
   let toolbarPosition = $state<ToolbarPosition>({ x: 0, y: 0 });
 
-  // ОЦЕНКА размера панели для clamp до того, как элемент измерен в layout.
-  // Соответствует текущей раскладке (5 кнопок × 24px + разделитель +
-  // padding/gap). Значение — приблизительное: clamp нужен лишь грубый
-  // footprint, чтобы панель не уезжала за край viewport.
-  //
-  // ВНИМАНИЕ: при изменении НАБОРА кнопок во FloatingToolbar (добавили/убрали
-  // кнопку или разделитель) эти числа надо синхронизировать вручную — это
-  // хардкод-оценка, а не фактический замер offsetWidth/Height. См. MDP-16.
-  const TOOLBAR_SIZE = { width: 172, height: 32 };
+  // Фактический размер панели (MDP-48): измеряется самой FloatingToolbar
+  // (offsetWidth/Height + ResizeObserver) и подаётся в clampToolbarPosition
+  // вместо прежнего хардкода 172×32. `null` ⇒ ещё не измерен → панель скрыта
+  // (fail-closed, без скачка не на месте). При изменении набора кнопок размер
+  // обновляется автоматически — ручная синхронизация больше не нужна.
+  let toolbarSize = $state<{ width: number; height: number } | null>(null);
+
+  function handleToolbarMeasure(size: { width: number; height: number }): void {
+    toolbarSize = size;
+  }
 
   const visibility = new ToolbarVisibility({
     onChange: (v) => {
-      if (v) recomputePosition();
-      toolbarVisible = v;
+      // Видимость = смогли ли реально вычислить позицию. recomputePosition
+      // возвращает false во всех fail-closed ветках (нет view / пустое
+      // выделение / нет координат / размер ещё не измерен), и тогда панель
+      // скрыта. Раньше onChange безусловно писал toolbarVisible = v ПОСЛЕ
+      // recomputePosition, затирая fail-closed (баг найден SENAR MDP-48).
+      toolbarVisible = v ? recomputePosition() : false;
     },
   });
 
-  // Recompute the toolbar position from the current selection geometry.
-  // jsdom has no layout → coordsAtPos returns null; we fail-closed (hide).
-  function recomputePosition() {
+  // Пересчитать позицию панели по геометрии выделения. Возвращает true, если
+  // позиция успешно вычислена; false — если позиционировать нельзя. Сама
+  // toolbarVisible НЕ трогает: видимостью управляет вызывающий по результату,
+  // иначе порядок присваиваний в onChange затирал бы fail-closed.
+  // jsdom не делает layout → coordsAtPos === null → false (панель скрыта).
+  function recomputePosition(): boolean {
     const view = editorView;
-    if (!view) {
-      toolbarVisible = false;
-      return;
-    }
+    if (!view) return false;
     const sel = view.state.selection.main;
-    if (sel.empty) {
-      toolbarVisible = false;
-      return;
-    }
+    if (sel.empty) return false;
     const startCoords = view.coordsAtPos(sel.from);
     const endCoords = view.coordsAtPos(sel.to);
-    if (!startCoords || !endCoords) {
-      // No layout (tests) or off-screen selection → cannot position. Fail-closed.
-      toolbarVisible = false;
-      return;
+    if (!startCoords || !endCoords) return false; // нет layout / off-screen
+    // Размер панели ещё не измерен (или нулевой) → точная позиция невозможна.
+    // Fail-closed: не показываем, чтобы не мигнуть не на месте (MDP-48).
+    if (!toolbarSize || toolbarSize.width <= 0 || toolbarSize.height <= 0) {
+      return false;
     }
     const selRect = {
       left: Math.min(startCoords.left, endCoords.left),
@@ -98,10 +102,11 @@
       right: Math.max(startCoords.right, endCoords.right),
       bottom: Math.max(startCoords.bottom, endCoords.bottom),
     };
-    toolbarPosition = clampToolbarPosition(selRect, TOOLBAR_SIZE, {
+    toolbarPosition = clampToolbarPosition(selRect, toolbarSize, {
       width: window.innerWidth,
       height: window.innerHeight,
     });
+    return true;
   }
 
   function handleViewReady(view: EditorView | null) {
@@ -155,6 +160,7 @@
       visible={toolbarVisible}
       position={toolbarPosition}
       onAction={handleToolbarAction}
+      onMeasure={handleToolbarMeasure}
     />
   </section>
 {:else}
