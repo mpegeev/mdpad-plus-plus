@@ -117,3 +117,23 @@ describe("FloatingToolbar.svelte: onAction", () => {
     expect(() => btn.click()).not.toThrow();
   });
 });
+
+describe("FloatingToolbar.svelte: onMeasure (MDP-48)", () => {
+  it("вызывает onMeasure на монтаже с числовыми width/height", async () => {
+    const onMeasure = vi.fn();
+    render(FloatingToolbar, { props: { visible: false, onMeasure } });
+    await tick();
+    expect(onMeasure).toHaveBeenCalled();
+    const size = onMeasure.mock.calls.at(-1)?.[0];
+    // jsdom не делает layout (offset* === 0), поэтому проверяем КОНТРАКТ
+    // вызова, а не конкретные пиксели: оба поля — числа.
+    expect(typeof size.width).toBe("number");
+    expect(typeof size.height).toBe("number");
+  });
+
+  it("без onMeasure монтаж не вызывает ошибку (fail-safe)", () => {
+    expect(() =>
+      render(FloatingToolbar, { props: { visible: false } }),
+    ).not.toThrow();
+  });
+});
