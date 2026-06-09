@@ -89,16 +89,16 @@ F2/click снимает виджет → raw, blur/Esc/Ctrl+E возвращаю
 Порядок мержа ретро-фиксов и батча: **#33 → #34 → #32 → #29 → #30 → #31**.
 Из ретро-ревью выделены follow-ups MDP-46/47/48 (контрактные тесты — #33).
 
-| #   | Задача                                                      | Статус      | PR / зависит от                                           |
-| --- | ----------------------------------------------------------- | ----------- | --------------------------------------------------------- |
-| 16  | ★ **MDP-17** Format bold/italic/underline/code/code-fence   | ✅ merged   | [#29](https://github.com/mpegeev/mdpad-plus-plus/pull/29) |
-| 17  | ★ **MDP-16** Floating selection toolbar                     | ✅ merged   | [#31](https://github.com/mpegeev/mdpad-plus-plus/pull/31) |
-| 18  | ★ **MDP-19** Tabs drag-reorder, middle-click, context menu  | ✅ merged   | [#30](https://github.com/mpegeev/mdpad-plus-plus/pull/30) |
-| 18a | **MDP-46** Интеграция toolbar ↔ команды (`formatForAction`) | ⏳ в работе | MDP-16 + MDP-17 (контрактные тесты в #33)                 |
-| 18b | **MDP-47** Reveal in Sidebar: expand-to-path                | ⏳ в работе | MDP-19 (контрактные тесты в #33)                          |
-| 18c | **MDP-48** Floating toolbar: измерять фактический размер    | ⏳ в работе | MDP-16 (верификация интеграционная/ручная)                |
-| 19  | **MDP-18** Format heading levels + indent                   | ⬜ todo     | MDP-17 (следом за #16)                                    |
-| 20  | **MDP-20** Window/sidebar position persistence              | ⬜ todo     | лучше после MDP-26 (или собственная мини-persistence)     |
+| #   | Задача                                                      | Статус    | PR / зависит от                                           |
+| --- | ----------------------------------------------------------- | --------- | --------------------------------------------------------- |
+| 16  | ★ **MDP-17** Format bold/italic/underline/code/code-fence   | ✅ merged | [#29](https://github.com/mpegeev/mdpad-plus-plus/pull/29) |
+| 17  | ★ **MDP-16** Floating selection toolbar                     | ✅ merged | [#31](https://github.com/mpegeev/mdpad-plus-plus/pull/31) |
+| 18  | ★ **MDP-19** Tabs drag-reorder, middle-click, context menu  | ✅ merged | [#30](https://github.com/mpegeev/mdpad-plus-plus/pull/30) |
+| 18a | **MDP-46** Интеграция toolbar ↔ команды (`formatForAction`) | ✅ merged | [#36](https://github.com/mpegeev/mdpad-plus-plus/pull/36) |
+| 18b | **MDP-47** Reveal in Sidebar: expand-to-path                | ✅ merged | [#37](https://github.com/mpegeev/mdpad-plus-plus/pull/37) |
+| 18c | **MDP-48** Floating toolbar: измерять фактический размер    | ✅ merged | [#38](https://github.com/mpegeev/mdpad-plus-plus/pull/38) |
+| 19  | **MDP-18** Format heading levels + indent                   | ⬜ todo   | MDP-17 (следом за #16)                                    |
+| 20  | **MDP-20** Window/sidebar position persistence              | ⬜ todo   | лучше после MDP-26 (или собственная мини-persistence)     |
 
 ---
 
@@ -160,10 +160,10 @@ F2/click снимает виджет → raw, blur/Esc/Ctrl+E возвращаю
 
   Остаётся открытым из follow-ups: **MDP-40** (см. Фаза 6 #31). (Runtime-scope долг MDP-9 ↔ MDP-39 закрыт в **MDP-44**, см. Фазу 1; MDP-41 смержен — #24.)
 
-- **SENAR follow-ups из ретро-ревью M3/M4 (2026-06-08):**
-  - ⏳ [MDP-46](https://linear.app/mpegeev/issue/MDP-46) — интеграция floating toolbar ↔ команды форматирования (`formatForAction`); контрактные тесты test-writer закоммичены в [#33](https://github.com/mpegeev/mdpad-plus-plus/pull/33).
-  - ⏳ [MDP-47](https://linear.app/mpegeev/issue/MDP-47) — Reveal in Sidebar: expand-to-path (`ancestorDirsToReveal` + `revealPath`); контрактные тесты в #33.
-  - ⏳ [MDP-48](https://linear.app/mpegeev/issue/MDP-48) — floating toolbar: измерять фактический размер вместо хардкода `TOOLBAR_SIZE 172×32`; верификация интеграционная/ручная (чистого ядра нет).
+- **SENAR follow-ups из ретро-ревью M3/M4 (2026-06-08) — все закрыты 2026-06-09:**
+  - ✅ [MDP-46](https://linear.app/mpegeev/issue/MDP-46) — интеграция floating toolbar ↔ команды форматирования (`formatForAction`). **Merged** ([#36](https://github.com/mpegeev/mdpad-plus-plus/pull/36)): единый seam для хоткеев и тулбара; контрактные тесты test-writer из #33 (один ассерт `code-fence` поправлен супервайзер-авторизованно — построчное поведение MDP-17).
+  - ✅ [MDP-47](https://linear.app/mpegeev/issue/MDP-47) — Reveal in Sidebar: expand-to-path. **Merged** ([#37](https://github.com/mpegeev/mdpad-plus-plus/pull/37)): чистая `ancestorDirsToReveal` (41 контрактный тест) + действие `revealPath` с ленивым раскрытием.
+  - ✅ [MDP-48](https://linear.app/mpegeev/issue/MDP-48) — floating toolbar: измерять фактический размер вместо хардкода `TOOLBAR_SIZE 172×32`. **Merged** ([#38](https://github.com/mpegeev/mdpad-plus-plus/pull/38)): `onMeasure` + `ResizeObserver`; SENAR нашёл и починил ретро-баг fail-closed в `onChange`.
 
 - **Worktree gotchas из M2-batch:**
   - `node_modules` через **junction** в worktree РАБОТАЕТ при наличии `vitest.config.ts` с `server.fs.allow: ["..", "../.."]` (подход MDP-6/8/11). В follow-up-батче (MDP-10/9/39/42) junction `node_modules` + общий `dist`/`CARGO_TARGET_DIR` использовались без реального `npm install` — vitest/eslint/cargo прошли. Без `server.fs.allow` Vite-резолвер блокирует `@testing-library/svelte` — тогда нужен реальный `npm install` в каждом worktree.
