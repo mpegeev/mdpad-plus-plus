@@ -19,7 +19,10 @@
 
 ## Содержимое
 
-| Файл                          | Задача | Целевой путь                             | Тестируемое                               |
-| ----------------------------- | ------ | ---------------------------------------- | ----------------------------------------- |
-| `formatForAction.test.ts.txt` | MDP-46 | `src/lib/editor/formatForAction.test.ts` | `formatForAction()` — seam тулбар↔формат  |
-| `revealPath.test.ts.txt`      | MDP-47 | `src/lib/stores/revealPath.test.ts`      | `ancestorDirsToReveal()` — expand-to-path |
+Активных контрактных тестов нет — оба набора уже взяты в работу и переехали в
+`src/` (каталог пуст, оставлен как индекс истории).
+
+| Набор             | Задача | Статус       | Текущий путь                             | Тестируемое                               |
+| ----------------- | ------ | ------------ | ---------------------------------------- | ----------------------------------------- |
+| `formatForAction` | MDP-46 | ✅ перенесён | `src/lib/editor/formatForAction.test.ts` | `formatForAction()` — seam тулбар↔формат  |
+| `revealPath`      | MDP-47 | ✅ перенесён | `src/lib/stores/revealPath.test.ts`      | `ancestorDirsToReveal()` — expand-to-path |

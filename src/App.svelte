@@ -9,7 +9,12 @@
     SIDEBAR_MIN,
     SIDEBAR_MAX,
   } from "$lib/layout/clampSidebarWidth";
-  import { setActive, type DocumentId } from "$lib/stores/documents.svelte";
+  import {
+    setActive,
+    getActive,
+    type DocumentId,
+  } from "$lib/stores/documents.svelte";
+  import { revealPath } from "$lib/stores/fileTree.svelte";
 
   let sidebarWidth = $state(SIDEBAR_DEFAULT);
   let sidebarCollapsed = $state(false);
@@ -33,13 +38,16 @@
     sidebarWidth = next;
   }
 
-  // "Reveal in Sidebar" (MDP-19). Make the document active so the file-tree
-  // highlights its row, then ensure the sidebar is visible. The tree already
-  // highlights the active document's path (Sidebar.svelte `activePath`); a
-  // full expand-to-path of collapsed ancestor folders is out of scope here.
+  // "Reveal in Sidebar" (MDP-19 + MDP-47). Make the document active so the
+  // file-tree highlights its row, ensure the sidebar is visible, then expand
+  // every collapsed ancestor folder down to the file (expand-to-path, MDP-47).
+  // Sidebar scrolls the active row into view once it becomes reachable.
   function onRevealInSidebar(id: DocumentId) {
     setActive(id);
     if (sidebarCollapsed) sidebarCollapsed = false;
+    const doc = getActive();
+    // No path (unsaved untitled) → nothing to reveal in the tree (fail-closed).
+    if (doc?.path) void revealPath(doc.path);
   }
 </script>
 

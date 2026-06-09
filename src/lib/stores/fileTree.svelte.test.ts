@@ -206,3 +206,94 @@ describe("error handling (fail-closed)", () => {
     expect(s.getRootPath()).toBeNull();
   });
 });
+
+describe("revealPath (MDP-47 — expand-to-path orchestration)", () => {
+  // Nested tree: /root → a → b → f.md. Children are lazy: only fetched on
+  // expand. The pure ancestor computation is covered independently in
+  // revealPath.test.ts; here we verify the store wires it to lazy loading.
+  function nestedDeps() {
+    return vi.fn(async (path: string) => {
+      if (path === "/root") return [dir("a")];
+      if (path === "/root/a") return [dir("b", "/root/a")];
+      if (path === "/root/a/b") return [file("f.md", "/root/a/b")];
+      return [];
+    });
+  }
+
+  it("expands every collapsed ancestor down to the file (deep nesting)", async () => {
+    const s = await loadStore();
+    const listDir = nestedDeps();
+    s.__setDeps({ pickFolder: vi.fn(), listDir });
+
+    await s.openFolderPath("/root");
+    // Collapsed: only the top folder is visible.
+    expect(s.getFlatNodes().map((n) => n.name)).toEqual(["a"]);
+
+    await s.revealPath("/root/a/b/f.md");
+
+    // Both ancestor folders fetched + expanded, file row now reachable.
+    expect(s.getFlatNodes().map((n) => n.name)).toEqual(["a", "b", "f.md"]);
+    expect(listDir).toHaveBeenCalledWith("/root/a");
+    expect(listDir).toHaveBeenCalledWith("/root/a/b");
+  });
+
+  it("does not collapse an ancestor that is already expanded", async () => {
+    const s = await loadStore();
+    const listDir = nestedDeps();
+    s.__setDeps({ pickFolder: vi.fn(), listDir });
+
+    await s.openFolderPath("/root");
+    await s.toggleDir("/root/a"); // pre-expand the first ancestor
+    expect(s.getFlatNodes().map((n) => n.name)).toEqual(["a", "b"]);
+    const callsBefore = listDir.mock.calls.length;
+
+    await s.revealPath("/root/a/b/f.md");
+
+    // /root/a stays open (not toggled off); chain continues to the file.
+    expect(s.getFlatNodes().map((n) => n.name)).toEqual(["a", "b", "f.md"]);
+    // Only /root/a/b is newly fetched; /root/a is not re-listed.
+    expect(listDir.mock.calls.length).toBe(callsBefore + 1);
+    expect(listDir).toHaveBeenCalledWith("/root/a/b");
+  });
+
+  it("is a no-op when no folder is open (fail-closed)", async () => {
+    const s = await loadStore();
+    const listDir = vi.fn();
+    s.__setDeps({ pickFolder: vi.fn(), listDir });
+
+    await s.revealPath("/root/a/b/f.md");
+
+    expect(listDir).not.toHaveBeenCalled();
+    expect(s.getRootPath()).toBeNull();
+  });
+
+  it("is a no-op when the file is outside the root (segment boundary)", async () => {
+    const s = await loadStore();
+    const listDir = nestedDeps();
+    s.__setDeps({ pickFolder: vi.fn(), listDir });
+
+    await s.openFolderPath("/root");
+    const callsBefore = listDir.mock.calls.length;
+
+    // "/root-extra/..." is a string prefix match but not a segment descendant.
+    await s.revealPath("/root-extra/a/f.md");
+
+    expect(listDir.mock.calls.length).toBe(callsBefore); // no child fetches
+    expect(s.getFlatNodes().map((n) => n.name)).toEqual(["a"]); // unchanged
+  });
+
+  it("stops without throwing when an ancestor is missing from the tree", async () => {
+    const s = await loadStore();
+    // Root has folder "a" but "a" lists no "b" — the tree diverges from the path.
+    const listDir = vi.fn(async (path: string) => {
+      if (path === "/root") return [dir("a")];
+      return []; // /root/a has no children
+    });
+    s.__setDeps({ pickFolder: vi.fn(), listDir });
+
+    await s.openFolderPath("/root");
+    await expect(s.revealPath("/root/a/b/f.md")).resolves.toBeUndefined(); // fail-closed, no throw
+    // "a" expanded (empty); "b" never existed → chain stopped.
+    expect(s.getFlatNodes().map((n) => n.name)).toEqual(["a"]);
+  });
+});
