@@ -13,6 +13,7 @@
   import type { EditorView } from "@codemirror/view";
   import { ToolbarVisibility } from "$lib/editor/toolbarVisibility";
   import type { ToolbarAction } from "$lib/editor/toolbarVisibility";
+  import { commandForAction } from "$lib/editor/format";
   import {
     clampToolbarPosition,
     type ToolbarPosition,
@@ -42,14 +43,13 @@
     setMode(active.id, cycleMode(active.mode));
   }
 
-  // ----- Floating toolbar overlay (MDP-16) -----
+  // ----- Floating toolbar overlay (MDP-16 + MDP-46) -----
   // The toolbar lives above the editor and reacts to selection geometry from
   // the CodeMirror view. Visibility is driven by a debounced state machine;
   // the pixel position is computed from `coordsAtPos` and clamped to viewport.
   //
-  // NOTE: onAction is intentionally a no-op stub here — wiring the actions to
-  // the actual formatting commands is MDP-17 (developed in parallel). This
-  // task delivers only the shell, visibility and positioning.
+  // onAction is wired (MDP-46) to the shared formatForAction seam via
+  // commandForAction — the same path the MDP-17 hotkeys use.
 
   let editorView: EditorView | null = $state(null);
   let toolbarVisible = $state(false);
@@ -121,9 +121,13 @@
   }
 
   function handleToolbarAction(action: ToolbarAction) {
-    // MDP-17 integration point — no formatting logic in this task. The action
-    // is intentionally discarded until the format commands land.
-    void action;
+    // MDP-46: применяем разметку к выделению активного редактора через общий
+    // seam formatForAction (тот же путь, что и хоткеи MDP-17). Нет активного
+    // view → no-op (fail-closed, негативный сценарий). commandForAction сам
+    // вернёт фокус редактору после диспатча.
+    const view = editorView;
+    if (!view) return;
+    commandForAction(action)(view);
   }
 
   $effect(() => {
