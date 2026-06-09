@@ -16,7 +16,11 @@ import { tick } from "svelte";
 import { EditorView } from "@codemirror/view";
 import Editor from "./Editor.svelte";
 import { __clearRenderCache } from "./inlineRender";
-import { commandForHeading, indentListCommand } from "./format";
+import {
+  commandForHeading,
+  indentListCommand,
+  outdentListCommand,
+} from "./format";
 
 beforeEach(() => {
   __clearRenderCache();
@@ -60,18 +64,24 @@ function pressKey(
   );
 }
 
+/**
+ * Диспатчит keydown «Tab» и возвращает событие, чтобы проверить
+ * `defaultPrevented`: CM гасит дефолт только когда команда обработала событие
+ * (вернула true). Это отличает «перехвачено внутри списка» от «провалилось к
+ * дефолту вне списка», чего проверка одного лишь текста документа не даёт.
+ */
 function pressTab(
   view: EditorView,
   opts: Partial<KeyboardEventInit> = {},
-): void {
-  view.contentDOM.dispatchEvent(
-    new KeyboardEvent("keydown", {
-      key: "Tab",
-      bubbles: true,
-      cancelable: true,
-      ...opts,
-    }),
-  );
+): KeyboardEvent {
+  const ev = new KeyboardEvent("keydown", {
+    key: "Tab",
+    bubbles: true,
+    cancelable: true,
+    ...opts,
+  });
+  view.contentDOM.dispatchEvent(ev);
+  return ev;
 }
 
 describe("заголовки: хоткеи Ctrl+0..6 (AC: хоткеи)", () => {
@@ -112,24 +122,28 @@ describe("заголовки: хоткеи Ctrl+0..6 (AC: хоткеи)", () => 
 });
 
 describe("отступы списков: Tab/Shift+Tab (AC: indent/outdent)", () => {
-  it("Tab внутри списка увеличивает отступ", async () => {
+  it("Tab внутри списка увеличивает отступ и перехватывает событие", async () => {
     const view = await mountWithSelection("- a", 2, 2);
-    pressTab(view);
+    const ev = pressTab(view);
     await tick();
     expect(view.state.doc.toString()).toBe("  - a");
+    expect(ev.defaultPrevented).toBe(true); // событие обработано командой
   });
 
-  it("Shift+Tab внутри списка уменьшает отступ", async () => {
+  it("Shift+Tab внутри списка уменьшает отступ и перехватывает событие", async () => {
     const view = await mountWithSelection("  - a", 4, 4);
-    pressTab(view, { shiftKey: true });
+    const ev = pressTab(view, { shiftKey: true });
     await tick();
     expect(view.state.doc.toString()).toBe("- a");
+    expect(ev.defaultPrevented).toBe(true);
   });
 
-  it("Tab вне списка НЕ меняет документ (команда отказывается, дефолт срабатывает)", async () => {
+  it("Tab вне списка НЕ перехватывается (defaultPrevented=false) и не меняет документ", async () => {
     const view = await mountWithSelection("plain", 2, 2);
-    pressTab(view);
+    const ev = pressTab(view);
     await tick();
+    // Команда вернула false → CM не гасит дефолт → событие проходит дальше.
+    expect(ev.defaultPrevented).toBe(false);
     expect(view.state.doc.toString()).toBe("plain");
   });
 
@@ -141,6 +155,21 @@ describe("отступы списков: Tab/Shift+Tab (AC: indent/outdent)", ()
   it("indentListCommand возвращает true внутри списка", async () => {
     const view = await mountWithSelection("- a", 0, 0);
     expect(indentListCommand(view)).toBe(true);
+  });
+
+  it("outdentListCommand возвращает false вне списка", async () => {
+    const view = await mountWithSelection("plain", 0, 0);
+    expect(outdentListCommand(view)).toBe(false);
+  });
+
+  it("outdentListCommand возвращает false на нулевом отступе (нечего снимать)", async () => {
+    const view = await mountWithSelection("- a", 0, 0);
+    expect(outdentListCommand(view)).toBe(false);
+  });
+
+  it("outdentListCommand возвращает true для вложенного элемента списка", async () => {
+    const view = await mountWithSelection("  - a", 0, 0);
+    expect(outdentListCommand(view)).toBe(true);
   });
 
   it("Tab на multi-line выделении списка отступает все элементы (AC: multi-line)", async () => {

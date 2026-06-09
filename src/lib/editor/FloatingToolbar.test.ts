@@ -155,6 +155,18 @@ describe("FloatingToolbar.svelte: dropdown заголовков (MDP-18)", () =>
     expect(queryByRole("menu")).toBeNull();
   });
 
+  it("AC#3: триггер — только иконки, без текстового содержимого", () => {
+    // Восстанавливает покрытие icon-only, ранее проверявшееся общим счётчиком
+    // кнопок (тулбар получил dropdown-trigger → счётчик сужен до кнопок
+    // форматирования, см. FORMAT_BTN). Триггер тоже обязан быть icon-only.
+    const { getByLabelText } = render(FloatingToolbar, {
+      props: { visible: true },
+    });
+    const trigger = getByLabelText("Уровень заголовка");
+    expect(trigger.querySelector("svg")).not.toBeNull();
+    expect((trigger.textContent ?? "").trim()).toBe("");
+  });
+
   it("клик по триггеру открывает меню с 7 пунктами (Параграф + H1..H6)", async () => {
     const { getByLabelText, getByRole } = render(FloatingToolbar, {
       props: { visible: true },
